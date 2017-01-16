@@ -32,3 +32,5 @@ Please fix this and reinstall this package." >&2
                exit 1
        fi
 fi
+
+#DEBHELPER#
