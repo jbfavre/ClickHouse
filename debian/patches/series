@@ -1,3 +1,4 @@
+fix_libcommon_build.patch
 use_system_clang.patch
 fix_tests.patch
 fix_gitignore.patch

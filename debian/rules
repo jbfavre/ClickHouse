@@ -7,6 +7,9 @@ export USE_STATIC_LIBRARIES=0
 
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
+include /usr/share/dpkg/pkg-info.mk
+export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
+
 ifndef THREADS_COUNT
     THREADS_COUNT=`grep -c ^processor /proc/cpuinfo`
 endif
