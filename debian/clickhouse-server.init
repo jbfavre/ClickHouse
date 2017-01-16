@@ -152,12 +152,6 @@ start()
 		echo -n "already running "
 		EXIT_STATUS=1
 	else
-		mkdir -p $LOGDIR
-		mkdir -p $PIDDIR
-		chown -R $USER:$GROUP $LOGDIR
-		chown -R $USER:$GROUP $PIDDIR
-		chown -R $USER:$GROUP $SYSCONFDIR
-
 		for i in $(seq 1 $NUMBER_OF_PROCESSES); do
 			if ! is_running $(generate_pid_name $i); then
 				rm -f $(generate_pid_name $i)
