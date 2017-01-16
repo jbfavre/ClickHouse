@@ -1,6 +1,6 @@
 --- a/.gitignore
 +++ /dev/null
-@@ -1,222 +0,0 @@
+@@ -1,225 +0,0 @@
 -# emacs files
 -*~
 -*\#
@@ -17,6 +17,9 @@
 -# ignore kdevelop files
 -*.kdev4
 -*.kdev_include_paths
+-
+-# ignore sublime project files
+-*.sublime-*
 -
 -# Qt Creator files
 -*.user
