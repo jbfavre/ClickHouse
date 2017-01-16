@@ -2,19 +2,8 @@
 
 set -e
 
-CONFFILES="/etc/clickhouse-server/config.xml
-/etc/clickhouse-server/config-preprocessed.xml
-/etc/clickhouse-server/users.xml
-/etc/clickhouse-server/users-preprocessed.xml"
-
 if [ "${1}" = "purge" ]
 then
-	for CONFFILE in ${CONFFILES}
-	do
-		dpkg-statoverride --remove ${CONFFILE} || test $? -eq 2
-	done
-
-	userdel clickhouse || true
 	rm -rf /var/lib/clickhouse /var/log/clickhouse
 fi
 

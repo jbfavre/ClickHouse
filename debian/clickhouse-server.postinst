@@ -3,35 +3,6 @@ set -e
 
 if [ "$1" = configure ]; then
 
-       # Make sure the administrative user exists
-       if ! getent passwd clickhouse > /dev/null; then
-               adduser --system --disabled-login --no-create-home --home /nonexistent \
-                       --shell /bin/false --group --gecos "Clickhouse server" clickhouse > /dev/null
-       fi
-
-       # if the user was created manually, make sure the group is there as well
-       if ! getent group clickhouse > /dev/null; then
-               addgroup --system clickhouse > /dev/null
-       fi
-
-       # make sure user is in the correct group
-       if ! id -Gn clickhouse | grep -qw clickhouse; then
-               adduser clickhouse clickhouse > /dev/null
-       fi
-
-       # check validity of user and group
-       if [ "`id -u clickhouse`" -eq 0 ]; then
-               echo "The clickhouse system user must not have uid 0 (root).
-Please fix this and reinstall this package." >&2
-               exit 1
-       fi
-
-       if [ "`id -g clickhouse`" -eq 0 ]; then
-               echo "The clickhouse system user must not have root as primary group.
-Please fix this and reinstall this package." >&2
-               exit 1
-       fi
-
        if [ ! -d "/var/lib/clickhouse" ]; then
                # ensure home directory ownership
                mkdir -p /var/lib/clickhouse
