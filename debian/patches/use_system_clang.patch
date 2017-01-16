@@ -1,0 +1,13 @@
+--- a/dbms/src/Interpreters/Compiler.cpp
++++ b/dbms/src/Interpreters/Compiler.cpp
+@@ -182,9 +182,7 @@ void Compiler::compile(
+ 
+ 	/// Слегка неудобно.
+ 	command <<
+-		"LD_LIBRARY_PATH=/usr/share/clickhouse/bin/"
+-		" /usr/share/clickhouse/bin/clang"
+-		" -B /usr/share/clickhouse/bin/"
++		" /usr/bin/clang"
+ 		" -x c++ -std=gnu++1y -O3 -g -Wall -Werror -Wnon-virtual-dtor -march=native -msse4 -mpopcnt -D NDEBUG"
+ 	#if _GLIBCXX_USE_CXX11_ABI == 0
+ 		" -D_GLIBCXX_USE_CXX11_ABI=0"
