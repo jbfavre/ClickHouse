@@ -1,20 +1,26 @@
 #!/bin/sh
 set -e
 
+ch_data_dir=/var/lib/clickhouse
+ch_log_dir=/var/log/clickhouse
+ch_user=clickhouse
+
 if [ "$1" = configure ]; then
 
-       if [ ! -d "/var/lib/clickhouse" ]; then
-               # ensure home directory ownership
-               mkdir -p /var/lib/clickhouse
-               #su -s /bin/sh clickhouse -c "test -O /var/lib/clickhouse && test -G /var/lib/clickhouse" || \
-               chown clickhouse:clickhouse /var/lib/clickhouse
-               chmod 0700 /var/lib/clickhouse
-       fi
+  # Create directories if missing
+  if [ ! -d "${ch_data_dir}" ]; then mkdir -p ${ch_data_dir} fi
+  if [ ! -d "${ch_log_dir}" ]; then mkdir -p ${ch_log_dir} fi
+  # Ensure ownerships of data & log directories
+  chown ${ch_user}:${ch_user} ${ch_data_dir}
+  chown ${ch_user}:${ch_user} ${ch_log_dir}
+  # Ensure permissions of data & log directories
+  chmod 0700 ${ch_data_dir}
+  chmod 0750 ${ch_log_dir}
 
-       # Clean old dynamic compilation results
-       if [ -d "/var/lib/clickhouse/build" ]; then
-               rm -f /var/lib/clickhouse/build/*.cpp /var/lib/clickhouse/build/*.so ||:
-       fi
+  # Clean old dynamic compilation results
+  if [ -d "${ch_data_dir}/build" ]; then
+    rm -f ${ch_data_dir}/build/*.cpp ${ch_data_dir}/build/*.so ||:
+  fi
 
 fi
 

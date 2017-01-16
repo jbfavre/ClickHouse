@@ -7,6 +7,8 @@ CONFFILES="/etc/clickhouse-server/config.xml
 /etc/clickhouse-server/users.xml
 /etc/clickhouse-server/users-preprocessed.xml"
 
+ch_user=clickhouse
+ch_group=${ch_user}
 if [ "${1}" = "purge" ]
 then
         for CONFFILE in ${CONFFILES}
@@ -14,7 +16,8 @@ then
                 dpkg-statoverride --remove ${CONFFILE} || test $? -eq 2
         done
 
-        userdel clickhouse || true
+        userdel ${ch_user} || true
+        groupdel ${ch_group} || true
 fi
 
 #DEBHELPER#

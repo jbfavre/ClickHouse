@@ -2,9 +2,13 @@
 
 set -e
 
+ch_data_dir=/var/lib/clickhouse
+ch_log_dir=/var/log/clickhouse
+
 if [ "${1}" = "purge" ]
 then
-	rm -rf /var/lib/clickhouse /var/log/clickhouse
+  rm -rf ${ch_data_dir}
+  rm -rf ${ch_log_dir}
 fi
 
 #DEBHELPER#
