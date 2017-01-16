@@ -14,7 +14,12 @@ endif ()
 find_library (ANL_LIB NAMES ${ANL_LIB_NAME})
 
 # better use Threads::Threads but incompatible with cmake < 3
-set (CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${ANL_LIB} ${CMAKE_THREAD_LIBS_INIT})
+set (CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+if (ANL_LIB)
+	set (CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${ANL_LIB})
+endif ()
+
+set (CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${CMAKE_EXE_LINKER_FLAGS}")
 
 check_cxx_source_runs("
 	#include <netdb.h>

@@ -81,7 +81,7 @@ option(POCO_ENABLE_DATA_SQLITE "Enable Data SQlite" OFF)
 option(POCO_ENABLE_DATA_MYSQL "Enable Data MySQL" OFF)
 option(POCO_ENABLE_DATA_ODBC "Enable Data ODBC" ON)
 option(POCO_ENABLE_SEVENZIP "Enable SevenZip" OFF)
-option(POCO_ENABLE_ZIP "Enable Zip" ON)
+option(POCO_ENABLE_ZIP "Enable Zip" OFF)
 option(POCO_ENABLE_APACHECONNECTOR "Enable ApacheConnector" OFF)
 option(POCO_ENABLE_CPPPARSER "Enable C++ parser" OFF)
 option(POCO_ENABLE_POCODOC "Enable Poco Documentation Generator" OFF)
@@ -295,7 +295,6 @@ configure_file(cmake/${PROJECT_NAME}Config.cmake.in "${CMAKE_CURRENT_BINARY_DIR}
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/${PROJECT_NAME}ConfigVersion.cmake
     DESTINATION
         "lib/cmake/${PROJECT_NAME}"
     COMPONENT

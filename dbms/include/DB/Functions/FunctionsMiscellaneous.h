@@ -26,9 +26,12 @@
 #include <DB/Functions/NumberTraits.h>
 #include <DB/Functions/ObjectPool.h>
 #include <DB/Interpreters/ExpressionActions.h>
+#include <DB/Interpreters/Context.h>
+#include <DB/Interpreters/Set.h>
 #include <ext/range.hpp>
 
 #include <cmath>
+
 
 namespace DB
 {
@@ -390,7 +393,7 @@ public:
 	}
 
 	/// Do not sleep during query analysis.
-	bool isSuitableForConstantFolding() const { return false; }
+	bool isSuitableForConstantFolding() const override { return false; }
 
 	size_t getNumberOfArguments() const override { return 1; }
 
@@ -799,7 +802,7 @@ public:
 	}
 
 	/// Because of function cannot be executed directly.
-	bool isSuitableForConstantFolding() const { return false; }
+	bool isSuitableForConstantFolding() const override { return false; }
 };
 
 
