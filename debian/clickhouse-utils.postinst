@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+mkdir -p /etc/compressor/conf.d
+chown -R clickhouse: /etc/compressor
+
+mkdir -p /etc/config-processor/conf.d
+chown -R clickhouse: /etc/config-processor
+
+#DEBHELPER#
