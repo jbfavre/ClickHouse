@@ -752,3 +752,13 @@
 -SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT JSON;
 -SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT JSONCompact;
 -SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT XML;
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
++++ /dev/null
+@@ -1,2 +0,0 @@
+-1	Hello
+-2	Hello
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
++++ /dev/null
+@@ -1,2 +0,0 @@
+-SET compile = 1, min_count_to_compile = 0, max_threads = 1;
+-SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
