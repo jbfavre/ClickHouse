@@ -9,3 +9,746 @@
  			args.zookeeper = True
  		except CalledProcessError:
  			args.zookeeper = False
+--- a/dbms/tests/queries/0_stateless/00061_merge_tree_alter.reference
++++ /dev/null
+@@ -1,138 +0,0 @@
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	10	42
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	9	41	1992-01-01 08:00:00
+-2015-01-01	10	42	0000-00-00 00:00:00
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String)) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	['2000-01-01','2000-01-01','2000-01-03']
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-s	String	DEFAULT	\'0\'
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date),  s String DEFAULT \'0\') ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	['2000-01-01','2000-01-01','2000-01-03']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	['2000-01-01','2000-01-01','2000-01-03']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	['0000-00-00','0000-00-00','0000-00-00']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	Int64		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s Int64) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	UInt32		
+-n.d	Array(Date)		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s UInt32,  `n.d` Array(Date)) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	100500	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	0	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	0	[]
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	100500	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	0	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	0	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.s	Array(String)		
+-s	UInt32		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.s` Array(String),  s UInt32) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	['asd','qwe','qwe']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	['120','130','140']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	['12','13','14']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	0
+-2015-01-01	8	40	2012-12-12 12:12:12	0
+-2015-01-01	9	41	1992-01-01 08:00:00	0
+-2015-01-01	10	42	0000-00-00 00:00:00	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32,  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500	[]	[]
+-2015-01-01	7	39	2014-07-14 13:26:50	0	[]	[]
+-2015-01-01	8	40	2012-12-12 12:12:12	0	[]	[]
+-2015-01-01	9	41	1992-01-01 08:00:00	0	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	0	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	0
+-2015-01-01	8	40	2012-12-12 12:12:12	0
+-2015-01-01	9	41	1992-01-01 08:00:00	0
+-2015-01-01	10	42	0000-00-00 00:00:00	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	Date		
+-s	DateTime		
+-CREATE TABLE test.alter ( d Date,  k UInt64,  i32 Int32,  dt Date,  s DateTime) ENGINE = MergeTree(d, k, 8192)
+-2015-01-01	6	38	2014-07-15	1970-01-02 06:55:00
+-2015-01-01	7	39	2014-07-14	0000-00-00 00:00:00
+-2015-01-01	8	40	2012-12-12	0000-00-00 00:00:00
+-2015-01-01	9	41	1992-01-01	0000-00-00 00:00:00
+-2015-01-01	10	42	0000-00-00	0000-00-00 00:00:00
+--- a/dbms/tests/queries/0_stateless/00061_merge_tree_alter.sql
++++ /dev/null
+@@ -1,84 +0,0 @@
+-DROP TABLE IF EXISTS test.alter;
+-CREATE TABLE test.alter (d Date, k UInt64, i32 Int32) ENGINE=MergeTree(d, k, 8192);
+-
+-INSERT INTO test.alter VALUES ('2015-01-01', 10, 42);
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN dt DateTime;
+-INSERT INTO test.alter VALUES ('2015-01-01', 9, 41, '1992-01-01 08:00:00');
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN n Nested(ui8 UInt8, s String);
+-INSERT INTO test.alter VALUES ('2015-01-01', 8, 40, '2012-12-12 12:12:12', [1,2,3], ['12','13','14']);
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN `n.d` Array(Date);
+-INSERT INTO test.alter VALUES ('2015-01-01', 7, 39, '2014-07-14 13:26:50', [10,20,30], ['120','130','140'],['2000-01-01','2000-01-01','2000-01-03']);
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN s String DEFAULT '0';
+-INSERT INTO test.alter VALUES ('2015-01-01', 6,38,'2014-07-15 13:26:50',[10,20,30],['asd','qwe','qwe'],['2000-01-01','2000-01-01','2000-01-03'],'100500');
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter DROP COLUMN `n.d`, MODIFY COLUMN s Int64;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN `n.d` Array(Date), MODIFY COLUMN s UInt32;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-OPTIMIZE TABLE test.alter;
+-
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter DROP COLUMN n.ui8, DROP COLUMN n.d;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter DROP COLUMN n.s;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter ADD COLUMN n.s Array(String), ADD COLUMN n.d Array(Date);
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter DROP COLUMN n;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-ALTER TABLE test.alter MODIFY COLUMN dt Date, MODIFY COLUMN s DateTime;
+-
+-DESC TABLE test.alter;
+-SHOW CREATE TABLE test.alter;
+-SELECT * FROM test.alter ORDER BY k;
+-
+-DROP TABLE test.alter;
+--- a/dbms/tests/queries/0_stateless/00189_time_zones.reference
++++ /dev/null
+@@ -1,250 +0,0 @@
+-2014-12-29
+-2014-12-22
+-2014-12-22
+-2014-12-29
+-2014-12-22
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-12-01
+-2014-07-01
+-2014-07-01
+-2014-07-01
+-2014-10-01
+-2014-07-01
+-1970-01-02 12:00:00	1970-01-02 12:00:00
+-1970-01-02 10:00:00	1970-01-02 11:00:00
+-1970-01-02 09:00:00	1970-01-02 10:00:00
+-1970-01-02 18:00:00	1970-01-02 18:00:00
+-1970-01-02 01:30:00	1970-01-02 01:30:00
+-2014
+-2014
+-2014
+-2014
+-2014
+-9
+-9
+-9
+-10
+-9
+-30
+-30
+-30
+-1
+-30
+-2
+-2
+-2
+-3
+-2
+-23
+-21
+-20
+-4
+-11
+-50
+-50
+-50
+-50
+-50
+-0
+-0
+-0
+-0
+-0
+-2014-09-30 23:50:00
+-2014-09-30 21:50:00
+-2014-09-30 20:50:00
+-2014-10-01 04:50:00
+-2014-09-30 11:20:00
+-2014-09-30 23:00:00
+-2014-09-30 21:00:00
+-2014-09-30 20:00:00
+-2014-10-01 04:00:00
+-2014-09-30 11:00:00
+-2014
+-2014
+-2014
+-2014
+-2014
+-24177
+-24177
+-24177
+-24178
+-24177
+-2334
+-2334
+-2334
+-2334
+-2334
+-16343
+-16343
+-16343
+-16344
+-16343
+-392251
+-392251
+-392251
+-392251
+-392251
+-23535110
+-23535110
+-23535110
+-23535110
+-23535110
+-1412106600
+-1412106600
+-1412106600
+-1412106600
+-1412106600
+-2014-09-30
+-2014-09-30
+-2014-09-30
+-2014-10-01
+-2014-09-30
+-2014-09-30
+-2014-09-30
+-2014-09-30
+-2014-10-01
+-2014-09-30
+-2015-07-13	2015-07-01	2015-07-01	1970-01-02 19:30:00
+-2014-12-22	2014-12-01	2014-10-01	1970-01-02 21:00:00
+-2014-12-29	2015-01-01	2015-01-01	1970-01-02 12:00:00
+-2014-09-29	2014-09-01	2014-07-01	1970-01-02 21:50:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 02:00:00
+-2015	7	15	3
+-2014	12	28	7
+-2015	1	1	4
+-2014	9	30	2
+-2015	3	15	7
+-19	30	0	2015-07-15 19:30:00
+-21	0	0	2014-12-28 21:00:00
+-12	0	0	2015-01-01 12:00:00
+-21	50	0	2014-09-30 21:50:00
+-2	30	0	2015-03-15 02:00:00
+-2015-07-15 19:00:00	2015	24187	2375
+-2014-12-28 21:00:00	2014	24180	2346
+-2015-01-01 12:00:00	2015	24181	2347
+-2014-09-30 21:00:00	2014	24177	2334
+-2015-03-15 02:00:00	2015	24183	2357
+-16631	399154	23949270	1436956200
+-16432	394389	23663340	1419800400
+-16436	394473	23668380	1420102800
+-16343	392251	23535110	1412106600
+-16509	396226	23773590	1426415400
+-2015-07-15	2015-07-15
+-2014-12-28	2014-12-28
+-2015-01-01	2015-01-01
+-2014-09-30	2014-09-30
+-2015-03-15	2015-03-15
+-2014-09-29	2014-09-01	2014-10-01	1970-01-02 11:20:00
+-2014-12-22	2014-12-01	2014-10-01	1970-01-02 13:30:00
+-2014-12-29	2015-01-01	2015-01-01	1970-01-02 01:30:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 02:00:00
+-2015-07-13	2015-07-01	2015-07-01	1970-01-02 02:00:00
+-2015	7	15	3
+-2014	12	29	7
+-2015	1	1	4
+-2014	9	1	2
+-2015	3	15	7
+-12	30	0	2015-07-15 02:00:00
+-22	0	0	2014-12-28 13:30:00
+-10	0	0	2015-01-01 01:30:00
+-21	50	0	2014-09-30 11:20:00
+-11	30	0	2015-03-15 02:00:00
+-2015-07-15 12:00:00	2015	24187	2375
+-2014-12-28 22:00:00	2014	24180	2346
+-2015-01-01 10:00:00	2015	24181	2347
+-2014-09-30 21:00:00	2014	24178	2334
+-2015-03-15 11:00:00	2015	24183	2357
+-16631	399154	23949270	1436956200
+-16432	394389	23663340	1419800400
+-16436	394473	23668380	1420102800
+-16343	392251	23535110	1412106600
+-16509	396226	23773590	1426415400
+-2015-07-15	2015-07-15
+-2014-12-28	2014-12-28
+-2015-01-01	2015-01-01
+-2014-09-30	2014-09-30
+-2015-03-15	2015-03-15
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 19:30:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 10:30:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 13:30:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 11:30:00
+-2015-03-09	2015-03-01	2015-01-01	1970-01-02 02:00:00
+-2015	3	15	7
+-2015	3	15	7
+-2015	3	15	7
+-2015	3	15	7
+-2015	3	15	7
+-19	30	0	2015-03-15 19:30:00
+-10	30	0	2015-03-15 10:30:00
+-13	30	0	2015-03-15 13:30:00
+-11	30	0	2015-03-15 11:30:00
+-2	30	0	2015-03-15 02:00:00
+-2015-03-15 19:00:00	2015	24183	2357
+-2015-03-15 10:00:00	2015	24183	2357
+-2015-03-15 13:00:00	2015	24183	2357
+-2015-03-15 11:00:00	2015	24183	2357
+-2015-03-15 02:00:00	2015	24183	2357
+-16509	396226	23773590	1426415400
+-16509	396226	23773590	1426415400
+-16509	396226	23773590	1426415400
+-16509	396226	23773590	1426415400
+-16509	396226	23773590	1426415400
+-2015-03-15	2015-03-15
+-2015-03-15	2015-03-15
+-2015-03-15	2015-03-15
+-2015-03-15	2015-03-15
+-2015-03-15	2015-03-15
+-2015-07-15 13:30:00
+-2015-07-15 12:30:00
+-2015-07-15 11:30:00
+-2015-07-15 19:30:00
+-2015-07-15 02:30:00
+-2015-07-15 19:30:00
+-2014-12-28 21:00:00
+-2015-01-01 12:00:00
+-2014-09-30 21:50:00
+-2015-03-15 02:30:00
+-2015-07-15 19:30:00
+-2015-07-15 11:30:00
+-2015-07-15 13:30:00
+-2015-07-15 12:30:00
+-2015-07-15 02:30:00
+-2014-09-30 20:50:00
+-2014-12-28 21:00:00
+-2015-01-01 09:00:00
+-2015-03-15 10:30:00
+-2015-07-15 11:30:00
+-1426415400
+-1426422600
+-1426426200
+-1426393800
+-1426455000
+-1426415400
+-1426415400
+-1426415400
+-1426415400
+-1426415400
+-1436934600
+-1419811200
+-1420102800
+-1412113800
+-1426455000
+-1426393800
+-1426426200
+-1426415400
+-1426422600
+-1426455000
+-1412113800
+-1419807600
+-1420110000
+-1426422600
+-1436959800
+--- a/dbms/tests/queries/0_stateless/00189_time_zones.sql
++++ /dev/null
+@@ -1,248 +0,0 @@
+-
+-/* timestamp 1419800400 == 2014-12-29 00:00:00 (Europe/Moscow) */
+-/* timestamp 1412106600 == 2014-09-30 23:50:00 (Europe/Moscow) */
+-/* timestamp 1420102800 == 2015-01-01 12:00:00 (Europe/Moscow) */
+-/* timestamp 1428310800 == 2015-04-06 12:00:00 (Europe/Moscow) */
+-/* timestamp 1436956200 == 2015-07-15 13:30:00 (Europe/Moscow) */
+-/* timestamp 1426415400 == 2015-03-15 13:30:00 (Europe/Moscow) */
+-
+-/* toMonday */
+-
+-SELECT toMonday(toDateTime(1419800400), 'Europe/Moscow');
+-SELECT toMonday(toDateTime(1419800400), 'Europe/Paris');
+-SELECT toMonday(toDateTime(1419800400), 'Europe/London');
+-SELECT toMonday(toDateTime(1419800400), 'Asia/Tokyo');
+-SELECT toMonday(toDateTime(1419800400), 'Pacific/Pitcairn');
+-
+-/* toStartOfMonth */
+-
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/Moscow');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/Paris');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/London');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Asia/Tokyo');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Pacific/Pitcairn');
+-
+-/* toStartOfQuarter */
+-
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/Moscow');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/Paris');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Europe/London');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Asia/Tokyo');
+-SELECT toStartOfMonth(toDateTime(1419800400), 'Pacific/Pitcairn');
+-
+-/* toStartOfYear */
+-
+-SELECT toStartOfQuarter(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toStartOfQuarter(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toStartOfQuarter(toDateTime(1412106600), 'Europe/London');
+-SELECT toStartOfQuarter(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toStartOfQuarter(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toTime */
+-
+-SELECT toTime(toDateTime(1420102800), 'Europe/Moscow'), toTime(toDateTime(1428310800), 'Europe/Moscow');
+-SELECT toTime(toDateTime(1420102800), 'Europe/Paris'), toTime(toDateTime(1428310800), 'Europe/Paris');
+-SELECT toTime(toDateTime(1420102800), 'Europe/London'), toTime(toDateTime(1428310800), 'Europe/London');
+-SELECT toTime(toDateTime(1420102800), 'Asia/Tokyo'), toTime(toDateTime(1428310800), 'Asia/Tokyo');
+-SELECT toTime(toDateTime(1420102800), 'Pacific/Pitcairn'), toTime(toDateTime(1428310800), 'Pacific/Pitcairn');
+-
+-/* toYear */
+-
+-SELECT toYear(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toYear(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toYear(toDateTime(1412106600), 'Europe/London');
+-SELECT toYear(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toYear(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toMonth */
+-
+-SELECT toMonth(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toMonth(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toMonth(toDateTime(1412106600), 'Europe/London');
+-SELECT toMonth(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toMonth(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toDayOfMonth */
+-
+-SELECT toDayOfMonth(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toDayOfMonth(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toDayOfMonth(toDateTime(1412106600), 'Europe/London');
+-SELECT toDayOfMonth(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toDayOfMonth(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toDayOfWeek */
+-
+-SELECT toDayOfWeek(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toDayOfWeek(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toDayOfWeek(toDateTime(1412106600), 'Europe/London');
+-SELECT toDayOfWeek(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toDayOfWeek(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toHour */
+-
+-SELECT toHour(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toHour(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toHour(toDateTime(1412106600), 'Europe/London');
+-SELECT toHour(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toHour(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toMinute */
+-
+-SELECT toMinute(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toMinute(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toMinute(toDateTime(1412106600), 'Europe/London');
+-SELECT toMinute(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toMinute(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toSecond */
+-
+-SELECT toSecond(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toSecond(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toSecond(toDateTime(1412106600), 'Europe/London');
+-SELECT toSecond(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toSecond(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toStartOfMinute */
+-
+-SELECT toStartOfMinute(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toStartOfMinute(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toStartOfMinute(toDateTime(1412106600), 'Europe/London');
+-SELECT toStartOfMinute(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toStartOfMinute(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toStartOfHour */
+-
+-SELECT toStartOfHour(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toStartOfHour(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toStartOfHour(toDateTime(1412106600), 'Europe/London');
+-SELECT toStartOfHour(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toStartOfHour(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeYearNum */
+-
+-SELECT toRelativeYearNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeYearNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeYearNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeYearNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeYearNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeMonthNum */
+-
+-SELECT toRelativeMonthNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeMonthNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeMonthNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeMonthNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeMonthNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeWeekNum */
+-
+-SELECT toRelativeWeekNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeWeekNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeWeekNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeWeekNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeWeekNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeDayNum */
+-
+-SELECT toRelativeDayNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeDayNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeDayNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeDayNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeDayNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeHourNum */
+-
+-SELECT toRelativeHourNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeHourNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeHourNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeHourNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeHourNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeMinuteNum */
+-
+-SELECT toRelativeMinuteNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeMinuteNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeMinuteNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeMinuteNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeMinuteNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toRelativeSecondNum */
+-
+-SELECT toRelativeSecondNum(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toRelativeSecondNum(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toRelativeSecondNum(toDateTime(1412106600), 'Europe/London');
+-SELECT toRelativeSecondNum(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toRelativeSecondNum(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-/* toDate */
+-
+-SELECT toDate(toDateTime(1412106600), 'Europe/Moscow');
+-SELECT toDate(toDateTime(1412106600), 'Europe/Paris');
+-SELECT toDate(toDateTime(1412106600), 'Europe/London');
+-SELECT toDate(toDateTime(1412106600), 'Asia/Tokyo');
+-SELECT toDate(toDateTime(1412106600), 'Pacific/Pitcairn');
+-
+-SELECT toDate(1412106600, 'Europe/Moscow');
+-SELECT toDate(1412106600, 'Europe/Paris');
+-SELECT toDate(1412106600, 'Europe/London');
+-SELECT toDate(1412106600, 'Asia/Tokyo');
+-SELECT toDate(1412106600, 'Pacific/Pitcairn');
+-
+-DROP TABLE IF EXISTS foo;
+-CREATE TABLE foo(x Int32, y String) ENGINE=Memory;
+-INSERT INTO foo(x, y) VALUES(1420102800, 'Europe/Moscow');
+-INSERT INTO foo(x, y) VALUES(1412106600, 'Europe/Paris');
+-INSERT INTO foo(x, y) VALUES(1419800400, 'Europe/London');
+-INSERT INTO foo(x, y) VALUES(1436956200, 'Asia/Tokyo');
+-INSERT INTO foo(x, y) VALUES(1426415400, 'Pacific/Pitcairn');
+-
+-SELECT toMonday(toDateTime(x), y), toStartOfMonth(toDateTime(x), y), toStartOfQuarter(toDateTime(x), y), toTime(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toYear(toDateTime(x), y), toMonth(toDateTime(x), y), toDayOfMonth(toDateTime(x), y), toDayOfWeek(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toHour(toDateTime(x), y), toMinute(toDateTime(x), y), toSecond(toDateTime(x), y), toStartOfMinute(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toStartOfHour(toDateTime(x), y), toRelativeYearNum(toDateTime(x), y), toRelativeMonthNum(toDateTime(x), y), toRelativeWeekNum(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toRelativeDayNum(toDateTime(x), y), toRelativeHourNum(toDateTime(x), y), toRelativeMinuteNum(toDateTime(x), y), toRelativeSecondNum(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toDate(toDateTime(x), y), toDate(x, y) FROM foo ORDER BY y ASC;
+-
+-SELECT toMonday(toDateTime(x), 'Europe/Paris'), toStartOfMonth(toDateTime(x), 'Europe/London'), toStartOfQuarter(toDateTime(x), 'Asia/Tokyo'), toTime(toDateTime(x), 'Pacific/Pitcairn') FROM foo ORDER BY x ASC;
+-SELECT toYear(toDateTime(x), 'Europe/Paris'), toMonth(toDateTime(x), 'Europe/London'), toDayOfMonth(toDateTime(x), 'Asia/Tokyo'), toDayOfWeek(toDateTime(x), 'Pacific/Pitcairn') FROM foo ORDER BY y ASC;
+-SELECT toHour(toDateTime(x), 'Europe/Paris'), toMinute(toDateTime(x), 'Europe/London'), toSecond(toDateTime(x), 'Asia/Tokyo'), toStartOfMinute(toDateTime(x), 'Pacific/Pitcairn') FROM foo ORDER BY y ASC;
+-SELECT toStartOfHour(toDateTime(x), 'Europe/Paris'), toRelativeYearNum(toDateTime(x), 'Europe/London'), toRelativeMonthNum(toDateTime(x), 'Asia/Tokyo'), toRelativeWeekNum(toDateTime(x), 'Pacific/Pitcairn') FROM foo ORDER BY y ASC;
+-SELECT toRelativeDayNum(toDateTime(x), 'Europe/Paris'), toRelativeHourNum(toDateTime(x), 'Europe/London'), toRelativeMinuteNum(toDateTime(x), 'Asia/Tokyo'), toRelativeSecondNum(toDateTime(x), 'Pacific/Pitcairn') FROM foo ORDER BY y ASC;
+-SELECT toDate(toDateTime(x), 'Europe/Paris'), toDate(x, 'Europe/Paris') FROM foo ORDER BY y ASC;
+-
+-SELECT toMonday(toDateTime(1426415400), y), toStartOfMonth(toDateTime(1426415400), y), toStartOfQuarter(toDateTime(1426415400), y), toTime(toDateTime(1426415400), y) FROM foo ORDER BY y ASC;
+-SELECT toYear(toDateTime(1426415400), y), toMonth(toDateTime(1426415400), y), toDayOfMonth(toDateTime(1426415400), y), toDayOfWeek(toDateTime(1426415400), y) FROM foo ORDER BY y ASC;
+-SELECT toHour(toDateTime(1426415400), y), toMinute(toDateTime(1426415400), y), toSecond(toDateTime(1426415400), y), toStartOfMinute(toDateTime(1426415400), y) FROM foo ORDER BY y ASC;
+-SELECT toStartOfHour(toDateTime(1426415400), y), toRelativeYearNum(toDateTime(1426415400), y), toRelativeMonthNum(toDateTime(1426415400), y), toRelativeWeekNum(toDateTime(1426415400), y) FROM foo ORDER BY y ASC;
+-SELECT toRelativeDayNum(toDateTime(1426415400), y), toRelativeHourNum(toDateTime(1426415400), y), toRelativeMinuteNum(toDateTime(1426415400), y), toRelativeSecondNum(toDateTime(1426415400), y) FROM foo ORDER BY y ASC;
+-SELECT toDate(toDateTime(1426415400), y), toDate(1426415400, y) FROM foo ORDER BY y ASC;
+-
+-/* toString */
+-
+-SELECT toString(toDateTime(1436956200), 'Europe/Moscow');
+-SELECT toString(toDateTime(1436956200), 'Europe/Paris');
+-SELECT toString(toDateTime(1436956200), 'Europe/London');
+-SELECT toString(toDateTime(1436956200), 'Asia/Tokyo');
+-SELECT toString(toDateTime(1436956200), 'Pacific/Pitcairn');
+-
+-SELECT toString(toDateTime(x), y) FROM foo ORDER BY y ASC;
+-SELECT toString(toDateTime(1436956200), y) FROM foo ORDER BY y ASC;
+-SELECT toString(toDateTime(x), 'Europe/London') FROM foo ORDER BY x ASC;
+-
+-/* toUnixTimestamp */
+-
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), 'Europe/Moscow');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), 'Europe/Paris');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), 'Europe/London');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), 'Asia/Tokyo');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), 'Pacific/Pitcairn');
+-
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400), 'Europe/Moscow'), 'Europe/Moscow');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400), 'Europe/Paris'), 'Europe/Paris');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400), 'Europe/London'), 'Europe/London');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400), 'Asia/Tokyo'), 'Asia/Tokyo');
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400), 'Pacific/Pitcairn'), 'Pacific/Pitcairn');
+-
+-SELECT toUnixTimestamp(toString(toDateTime(x)), y) FROM foo ORDER BY y ASC;
+-SELECT toUnixTimestamp(toString(toDateTime(1426415400)), y) FROM foo ORDER BY y ASC;
+-SELECT toUnixTimestamp(toString(toDateTime(x)), 'Europe/Paris') FROM foo ORDER BY x ASC;
+--- a/dbms/tests/queries/0_stateless/00309_formats.sql
++++ /dev/null
+@@ -1,8 +0,0 @@
+-SET output_format_write_statistics = 0;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT RowBinary;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT TabSeparatedWithNamesAndTypes;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT TabSeparatedRaw;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT CSV;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT JSON;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT JSONCompact;
+-SELECT number * 246 + 10 AS n, toDate('2000-01-01') + n AS d, toDateTime(d) + n AS t, range(n) AS arr, arrayStringConcat(arrayMap(x -> reinterpretAsString(x), arr)) AS s, (n, d, t) AS tuple FROM system.numbers LIMIT 2 FORMAT XML;
