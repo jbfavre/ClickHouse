@@ -17,7 +17,7 @@ Section: database
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser
 Description: Common files for clickhouse
- Yandex ClickHouse is an open-source column-oriented database management system
+ Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
  This package provides common files for both clickhouse server and client
@@ -28,7 +28,7 @@ Architecture: any
 Pre-Depends: clickhouse-common (= ${binary:Version})
 Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser
 Description: Base package for clickhouse
- Yandex ClickHouse is an open-source column-oriented database management system
+ Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
  This package provides clickhouse common configuration files
@@ -39,7 +39,7 @@ Architecture: any
 Pre-Depends: clickhouse-common (= ${binary:Version})
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Client binary for clickhouse
- Yandex ClickHouse is an open-source column-oriented database management system
+ Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
  This package provides clickhouse client binary
@@ -49,7 +49,7 @@ Section: database
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Various utilities for clickhouse analytics db
- Yandex ClickHouse is an open-source column-oriented database management system
+ Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
  This package provides:
@@ -57,3 +57,4 @@ Description: Various utilities for clickhouse analytics db
    - benchmark utility
    - configuration processor
    - compressor
+   - utf8 corrector
