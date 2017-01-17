@@ -20,6 +20,7 @@ BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server compressor config-p
 	dh $@ --parallel --max-parallel=4 --buildsystem=cmake
 
 override_dh_auto_test:
+	./debian/tests_wrapper.sh
 
 override_dh_auto_build:
 	dh_testdir
