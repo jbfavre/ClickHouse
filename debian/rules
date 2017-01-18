@@ -60,8 +60,10 @@ override_dh_auto_install:
 	done
 	# В случае сборки clickhouse-server, добавим в пакет бинарник clang-а, ld и заголовочные файлы - для динамической компиляции.
 	mkdir -p debian/tmp/usr/share/clickhouse/bin debian/tmp/usr/share/clickhouse/headers;
-	# Use system clang
-	#debian/copy_clang_binaries.sh debian/tmp/usr/share/clickhouse/bin/;
 	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
 	dh_install --sourcedir=debian/tmp
 	rm -f debian/tmp/etc/init.d/clickhouse-server
+	# Update upstream config file with Debian paths
+	sed -i 's/<path>.+<\/path>/<path>'\/var\/lib\/clickhouse'<\/path>/; \
+		s/<tmp_path>.+<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>' \
+		debian/tmp/etc/clickhouse-server/config.xml

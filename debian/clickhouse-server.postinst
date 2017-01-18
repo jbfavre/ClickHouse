@@ -1,27 +1,39 @@
 #!/bin/sh
 set -e
 
-ch_data_dir=/var/lib/clickhouse
-ch_log_dir=/var/log/clickhouse
-ch_user=clickhouse
+DATADIR=/var/lib/clickhouse
+LOGDIR=/var/log/clickhouse
+USER=clickhouse
+GROUP=${USER}
+CONFDIR=/etc/clickhouse-server
 
 if [ "$1" = configure ]; then
 
   # Create directories if missing
-  if [ ! -d "${ch_data_dir}" ]; then mkdir -p ${ch_data_dir}; fi
-  if [ ! -d "${ch_log_dir}" ]; then mkdir -p ${ch_log_dir}; fi
-  # Ensure ownerships of data & log directories
-  chown ${ch_user}:${ch_user} ${ch_data_dir}
-  chown ${ch_user}:${ch_user} ${ch_log_dir}
-  # Ensure permissions of data & log directories
-  chmod 0700 ${ch_data_dir}
-  chmod 0750 ${ch_log_dir}
+  if [ ! -d "${DATADIR}" ]; then mkdir -p ${DATADIR}; fi
+  chown ${USER}:${USER} ${DATADIR}
+  chmod 0700 ${DATADIR}
+  if [ ! -d "${LOGDIR}" ]; then mkdir -p ${LOGDIR}; fi
+  chown ${USER}:${GROUP} ${LOGDIR}
+  chmod 0750 ${LOGDIR}
 
-  # Clean old dynamic compilation results
-  if [ -d "${ch_data_dir}/build" ]; then
-    rm -f ${ch_data_dir}/build/*.cpp ${ch_data_dir}/build/*.so ||:
+  # Clean old dynamic compilation results (legacy from upstream. Still relevant ?)
+  if [ -d "${DATADIR}/build" ]; then
+    rm -f ${DATADIR}/build/*.cpp ${DATADIR}/build/*.so ||:
   fi
 
+  # Add config files permissions overrides
+  if ! dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 750 ${CONFDIR}
+  fi
+  for CONFFILE in ${CONFFILES};
+  do
+    if ! dpkg-statoverride --list ${CONFFILE} >/dev/null 2>&1
+    then
+      dpkg-statoverride --update --add ${USER} ${GROUP} 640 ${CONFFILE}
+    fi
+  done
 fi
 
 #DEBHELPER#

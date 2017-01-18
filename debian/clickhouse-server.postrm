@@ -2,13 +2,28 @@
 
 set -e
 
-ch_data_dir=/var/lib/clickhouse
-ch_log_dir=/var/log/clickhouse
+DATADIR=/var/lib/clickhouse
+LOGDIR=/var/log/clickhouse
+
+CONFDIR=/etc/clickhouse-server
 
 if [ "${1}" = "purge" ]
 then
-  rm -rf ${ch_data_dir}
-  rm -rf ${ch_log_dir}
+  rm -rf ${DATADIR}
+  rm -rf ${LOGDIR}
 fi
+
+# Remove config files permissions overrides
+if ! dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
+then
+  dpkg-statoverride --remove ${CONFDIR}
+fi
+for CONFFILE in `ls ${CONFDIR}`;
+do
+  if ! dpkg-statoverride --list ${CONFFILE} >/dev/null 2>&1
+  then
+    dpkg-statoverride --remove ${CONFFILE} || test $? -eq 2
+  fi
+done
 
 #DEBHELPER#
