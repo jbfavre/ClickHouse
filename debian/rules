@@ -64,6 +64,5 @@ override_dh_auto_install:
 	dh_install --sourcedir=debian/tmp
 	rm -f debian/tmp/etc/init.d/clickhouse-server
 	# Update upstream config file with Debian paths
-	sed -i 's/<path>.+<\/path>/<path>'\/var\/lib\/clickhouse'<\/path>/; \
-		s/<tmp_path>.+<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>' \
-		debian/tmp/etc/clickhouse-server/config.xml
+	sed -i 's/<path>.*<\/path>/<path>\/var\/lib\/clickhouse<\/path>/' debian/tmp/etc/clickhouse-server/config.xml
+	sed -i 's/<tmp_path>.*<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>/' debian/tmp/etc/clickhouse-server/config.xml
