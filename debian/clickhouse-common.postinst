@@ -1,36 +1,36 @@
 #!/bin/sh
 set -e
 
-ch_user=clickhouse
-ch_group=${ch_user}
+USER=clickhouse
+GROUP=${USER}
 
 if [ "$1" = configure ]; then
 
        # Make sure the administrative user exists
-       if ! getent passwd ${ch_user} > /dev/null; then
+       if ! getent passwd ${USER} > /dev/null; then
                adduser --system --disabled-login --no-create-home --home /nonexistent \
-                       --shell /bin/false --group --gecos "Clickhouse server" ${ch_user} > /dev/null
+                       --shell /bin/false --group --gecos "Clickhouse server" ${USER} > /dev/null
        fi
 
        # if the user was created manually, make sure the group is there as well
-       if ! getent group ${ch_group} > /dev/null; then
-               addgroup --system ${ch_group} > /dev/null
+       if ! getent group ${GROUP} > /dev/null; then
+               addgroup --system ${GROUP} > /dev/null
        fi
 
        # make sure user is in the correct group
-       if ! id -Gn ${ch_user} | grep -qw ${ch_user}; then
-               adduser ${ch_user} ${ch_group} > /dev/null
+       if ! id -Gn ${USER} | grep -qw ${USER}; then
+               adduser ${USER} ${GROUP} > /dev/null
        fi
 
        # check validity of user and group
-       if [ "`id -u ${ch_user}`" -eq 0 ]; then
-               echo "The ${ch_user} system user must not have uid 0 (root)." >&2
+       if [ "`id -u ${USER}`" -eq 0 ]; then
+               echo "The ${USER} system user must not have uid 0 (root)." >&2
                echo "Please fix this and reinstall this package." >&2
                exit 1
        fi
 
-       if [ "`id -g ${ch_group}`" -eq 0 ]; then
-               echo "The ${ch_user} system user must not have root as primary group." >&2
+       if [ "`id -g ${GROUP}`" -eq 0 ]; then
+               echo "The ${USER} system user must not have root as primary group." >&2
                echo "Please fix this and reinstall this package." >&2
                exit 1
        fi
