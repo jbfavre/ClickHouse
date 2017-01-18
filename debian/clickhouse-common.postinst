@@ -8,7 +8,7 @@ if [ "$1" = configure ]; then
 
        # Make sure the administrative user exists
        if ! getent passwd ${USER} > /dev/null; then
-               adduser --system --disabled-login --no-create-home --home /nonexistent \
+               adduser --system --disabled-login --no-create-home --home /var/run/clickhouse \
                        --shell /bin/false --group --gecos "Clickhouse server" ${USER} > /dev/null
        fi
 

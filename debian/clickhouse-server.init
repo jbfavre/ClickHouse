@@ -58,7 +58,7 @@ if command -v xmlstarlet >/dev/null 2>&1; then
 	LOG_FILE=$(xmlstarlet sel -t -v "/yandex/logger/log" $CNFFILE || echo $LOG_FILE)
 fi
 
-PIDDIR=/var/run/$PROGRAM
+PIDDIR=/var/run/clickhouse
 PIDFILE_PREFIX=$PIDDIR/$PROGRAM
 PIDFILE_RE="$PIDFILE_PREFIX[0-9]*.pid"
 
