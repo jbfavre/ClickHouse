@@ -15,7 +15,7 @@ if [ "$1" = configure ]; then
   chmod 0700 ${DATADIR}
   if [ ! -d "${LOGDIR}" ]; then mkdir -p ${LOGDIR}; fi
   chown ${USER}:${GROUP} ${LOGDIR}
-  chmod 0750 ${LOGDIR}
+  chmod 0755 ${LOGDIR}
 
   # Clean old dynamic compilation results (legacy from upstream. Still relevant ?)
   if [ -d "${DATADIR}/build" ]; then
