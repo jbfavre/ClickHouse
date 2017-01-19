@@ -9,31 +9,25 @@ CONFDIR=/etc/clickhouse-server
 
 if [ "$1" = configure ]; then
 
-  # Create directories if missing
-  if [ ! -d "${DATADIR}" ]; then mkdir -p ${DATADIR}; fi
-  chown ${USER}:${USER} ${DATADIR}
-  chmod 0700 ${DATADIR}
-  if [ ! -d "${LOGDIR}" ]; then mkdir -p ${LOGDIR}; fi
-  chown ${USER}:${GROUP} ${LOGDIR}
-  chmod 0755 ${LOGDIR}
-
   # Clean old dynamic compilation results (legacy from upstream. Still relevant ?)
   if [ -d "${DATADIR}/build" ]; then
     rm -f ${DATADIR}/build/*.cpp ${DATADIR}/build/*.so ||:
   fi
 
-  # Add config files permissions overrides
+  echo "Fixing permissions ..."
   if ! dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
   then
     dpkg-statoverride --update --add ${USER} ${GROUP} 750 ${CONFDIR}
   fi
-  for CONFFILE in ${CONFFILES};
-  do
-    if ! dpkg-statoverride --list ${CONFFILE} >/dev/null 2>&1
-    then
-      dpkg-statoverride --update --add ${USER} ${GROUP} 640 ${CONFFILE}
-    fi
-  done
+  if ! dpkg-statoverride --list ${DATADIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 700 ${DATADIR}
+  fi
+  if ! dpkg-statoverride --list ${LOGDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 755 ${LOGDIR}
+  fi
+
 fi
 
 #DEBHELPER#
