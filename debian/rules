@@ -50,9 +50,10 @@ override_dh_auto_clean:
 	dh_clean
 
 override_dh_auto_install:
-	dh_testdir
-	dh_testroot
-	dh_prep
+	# Can't use dh_auto_install for now
+	# build libboost test suite which fails
+	# will wait for the ability to use system libs instead of contrib ones
+	#dh_auto_install
 	cd build && \
 	for target in ${BUILD_TARGETS}; \
 	do \
@@ -62,7 +63,12 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/usr/share/clickhouse/bin debian/tmp/usr/share/clickhouse/headers;
 	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
 	dh_install --sourcedir=debian/tmp
+	# Remove upstream init script
 	rm -f debian/tmp/etc/init.d/clickhouse-server
+	# Create data & log directories
+	# Should be done by dh_auto_install but fails (see above)
+	mkdir -p debian/tmp/var/lib/clickhouse
+	mkdir -p debian/tmp/var/log/clickhouse
 	# Update upstream config file with Debian paths
 	sed -i 's/<path>.*<\/path>/<path>\/var\/lib\/clickhouse<\/path>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<tmp_path>.*<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>/' debian/tmp/etc/clickhouse-server/config.xml
