@@ -3,7 +3,7 @@ def GIT_REPO_NAME=env.JOB_NAME
 def REPOSITORY_EXTRA=""
 def REPOSITORY_EXTRA_KEYS=""
 def DEB_BUILD_OPTIONS=(skip_tests == "true" ? 'nocheck' : '' )
-def ADT=skip
+def ADT='skip'
 
 // Checkout package git repository
 // Must be done on master (my setup)
