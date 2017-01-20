@@ -65,7 +65,7 @@ stage name: 'Build binary packages'
 
     parallel architecture_i386: {
 
-        node('slave'){
+        node('slave,i386'){
             def architecture='i386'
             deleteDir()
             unstash 'source'
@@ -91,7 +91,7 @@ stage name: 'Build binary packages'
 
     }, architecture_amd64: {
 
-        node('slave'){
+        node('slave,adm64'){
             def architecture='amd64'
             deleteDir()
             unstash 'source'
