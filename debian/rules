@@ -14,7 +14,7 @@ ifndef THREADS_COUNT
     THREADS_COUNT=`grep -c ^processor /proc/cpuinfo`
 endif
 
-BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server compressor config-processor corrector_utf8
+BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor config-processor corrector_utf8
 
 %:
 	dh $@ --parallel --max-parallel=4 --buildsystem=cmake
