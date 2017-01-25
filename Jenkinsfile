@@ -208,5 +208,5 @@ stage('Archive artifacts')
         unstash 'binaries_amd64'
         unstash 'piuparts'
         unstash 'lintian'
-        archive '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.changes,lintian.txt,piuparts*'
+        archive '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.buildinfo,*.changes,lintian.txt,piuparts*'
     }
