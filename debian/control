@@ -58,6 +58,4 @@ Description: Various utilities for clickhouse analytics db
  This package provides:
  .
    - benchmark utility
-   - configuration processor
    - compressor
-   - utf8 corrector
