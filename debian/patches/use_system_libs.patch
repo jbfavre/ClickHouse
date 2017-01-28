@@ -1,0 +1,86 @@
+--- a/cmake/find_boost.cmake
++++ b/cmake/find_boost.cmake
+@@ -1,10 +1,4 @@
+-if (USE_INTERNAL_BOOST_LIBRARY)
+-	set (Boost_PROGRAM_OPTIONS_LIBRARY boost_program_options_internal)
+-	set (Boost_SYSTEM_LIBRARY boost_system_internal)
+-	set (Boost_FILESYSTEM_LIBRARY boost_filesystem_internal)
+-	set (Boost_INCLUDE_DIRS "${ClickHouse_SOURCE_DIR}/contrib/libboost/boost_1_62_0/")
+-	include_directories (BEFORE ${Boost_INCLUDE_DIRS})
+-else ()
++if (NOT USE_INTERNAL_BOOST_LIBRARY)
+ 	set (Boost_USE_STATIC_LIBS ${USE_STATIC_LIBRARIES})
+ 	set (BOOST_ROOT "/usr/local")
+ 	find_package (Boost 1.55 COMPONENTS program_options system filesystem regex thread)
+--- a/cmake/find_gperftools.cmake
++++ b/cmake/find_gperftools.cmake
+@@ -1,8 +1,4 @@
+-if (USE_INTERNAL_GPERFTOOLS_LIBRARY)
+-	set(GPERFTOOLS_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/libtcmalloc/include/")
+-	set(GPERFTOOLS_TCMALLOC tcmalloc_minimal_internal)
+-	include_directories (BEFORE ${GPERFTOOLS_INCLUDE_DIR})
+-else ()
++if (NOT USE_INTERNAL_GPERFTOOLS_LIBRARY)
+ 	find_package (Gperftools REQUIRED)
+ 	include_directories (${GPERFTOOLS_INCLUDE_DIR})
+ endif ()
+--- a/cmake/find_poco.cmake
++++ b/cmake/find_poco.cmake
+@@ -1,29 +1,4 @@
+-if (USE_INTERNAL_POCO_LIBRARY)
+-	set (Poco_INCLUDE_DIRS
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Foundation/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Util/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Net/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Data/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Data/ODBC/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Crypto/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/XML/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/MongoDB/include/"
+-	)
+-
+-	if (USE_STATIC_LIBRARIES)
+-		set (Poco_INCLUDE_DIRS ${Poco_INCLUDE_DIRS} "${ClickHouse_SOURCE_DIR}/contrib/libzlib-ng/" "${ClickHouse_BINARY_DIR}/contrib/libzlib-ng/")
+-	endif ()
+-
+-	set (Poco_Net_LIBRARY PocoNet)
+-	set (Poco_Util_LIBRARY PocoUtil)
+-	set (Poco_XML_LIBRARY PocoXML)
+-	set (Poco_Data_LIBRARY PocoData)
+-	set (Poco_Crypto_LIBRARY PocoCrypto)
+-	set (Poco_DataODBC_LIBRARY PocoDataODBC)
+-	set (Poco_MongoDB_LIBRARY PocoMongoDB)
+-	set (Poco_Foundation_LIBRARY PocoFoundation)
+-	include_directories (BEFORE ${Poco_INCLUDE_DIRS})
+-else ()
++if (NOT USE_INTERNAL_POCO_LIBRARY)
+ 	find_package (Poco REQUIRED Util Net XML Data Crypto DataODBC MongoDB Foundation)
+ 	include_directories (${Poco_INCLUDE_DIRS})
+ endif ()
+--- a/contrib/CMakeLists.txt
++++ b/contrib/CMakeLists.txt
+@@ -1,13 +1,5 @@
+ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast")
+ 
+-if (USE_INTERNAL_BOOST_LIBRARY)
+-	add_subdirectory (libboost)
+-endif ()
+-
+-if (USE_INTERNAL_POCO_LIBRARY)
+-	add_subdirectory (libpoco)
+-endif ()
+-
+ add_subdirectory (liblz4)
+ add_subdirectory (libzstd)
+ add_subdirectory (libre2)
+@@ -18,10 +10,6 @@ add_subdirectory (libfarmhash)
+ add_subdirectory (libmetrohash)
+ add_subdirectory (libzlib-ng)
+ 
+-if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
+-	add_subdirectory (libtcmalloc)
+-endif ()
+-
+ if (NOT AARCH64)
+ 	add_subdirectory (libcpuid)
+ endif ()
