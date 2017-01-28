@@ -30,6 +30,7 @@ override_dh_auto_build:
 	rm -rf contrib/libboost
 	rm -rf contrib/libpoco
 	rm -rf contrib/libtcmalloc
+	rm -rf contrib/libdouble-conversion
 	dh_testdir
 	# for building Debug run: debuild -e CMAKE_BUILD_TYPE=Debug
 	# for building with shared libs run: debuild -e USE_STATIC_LIBRARIES=0
