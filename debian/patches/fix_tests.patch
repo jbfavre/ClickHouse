@@ -19,3 +19,27 @@
 @@ -1,2 +0,0 @@
 -SET compile = 1, min_count_to_compile = 0, max_threads = 1;
 -SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
+--- a/dbms/tests/queries/0_stateless/00383_utf8_validation.reference
++++ /dev/null
+@@ -1,16 +0,0 @@
+-{
+-	"meta":
+-	[
+-		{
+-			"name": "s",
+-			"type": "String"
+-		}
+-	],
+-
+-	"data":
+-	[
+-		["� �"]
+-	],
+-
+-	"rows": 1
+-}
+--- a/dbms/tests/queries/0_stateless/00383_utf8_validation.sql
++++ /dev/null
+@@ -1,2 +0,0 @@
+-SET output_format_write_statistics = 0;
+-SELECT '\xED\x20\xA8' AS s FORMAT JSONCompact;
