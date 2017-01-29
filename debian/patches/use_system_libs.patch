@@ -1,0 +1,231 @@
+--- a/cmake/find_boost.cmake
++++ b/cmake/find_boost.cmake
+@@ -1,10 +1,4 @@
+-if (USE_INTERNAL_BOOST_LIBRARY)
+-	set (Boost_PROGRAM_OPTIONS_LIBRARY boost_program_options_internal)
+-	set (Boost_SYSTEM_LIBRARY boost_system_internal)
+-	set (Boost_FILESYSTEM_LIBRARY boost_filesystem_internal)
+-	set (Boost_INCLUDE_DIRS "${ClickHouse_SOURCE_DIR}/contrib/libboost/boost_1_62_0/")
+-	include_directories (BEFORE ${Boost_INCLUDE_DIRS})
+-else ()
++if (NOT USE_INTERNAL_BOOST_LIBRARY)
+ 	set (Boost_USE_STATIC_LIBS ${USE_STATIC_LIBRARIES})
+ 	set (BOOST_ROOT "/usr/local")
+ 	find_package (Boost 1.55 COMPONENTS program_options system filesystem regex thread)
+--- a/cmake/find_gperftools.cmake
++++ b/cmake/find_gperftools.cmake
+@@ -1,8 +1,4 @@
+-if (USE_INTERNAL_GPERFTOOLS_LIBRARY)
+-	set(GPERFTOOLS_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/libtcmalloc/include/")
+-	set(GPERFTOOLS_TCMALLOC tcmalloc_minimal_internal)
+-	include_directories (BEFORE ${GPERFTOOLS_INCLUDE_DIR})
+-else ()
++if (NOT USE_INTERNAL_GPERFTOOLS_LIBRARY)
+ 	find_package (Gperftools REQUIRED)
+ 	include_directories (${GPERFTOOLS_INCLUDE_DIR})
+ endif ()
+--- a/cmake/find_poco.cmake
++++ b/cmake/find_poco.cmake
+@@ -1,29 +1,4 @@
+-if (USE_INTERNAL_POCO_LIBRARY)
+-	set (Poco_INCLUDE_DIRS
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Foundation/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Util/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Net/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Data/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Data/ODBC/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/Crypto/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/XML/include/"
+-		"${ClickHouse_SOURCE_DIR}/contrib/libpoco/MongoDB/include/"
+-	)
+-
+-	if (USE_STATIC_LIBRARIES)
+-		set (Poco_INCLUDE_DIRS ${Poco_INCLUDE_DIRS} "${ClickHouse_SOURCE_DIR}/contrib/libzlib-ng/" "${ClickHouse_BINARY_DIR}/contrib/libzlib-ng/")
+-	endif ()
+-
+-	set (Poco_Net_LIBRARY PocoNet)
+-	set (Poco_Util_LIBRARY PocoUtil)
+-	set (Poco_XML_LIBRARY PocoXML)
+-	set (Poco_Data_LIBRARY PocoData)
+-	set (Poco_Crypto_LIBRARY PocoCrypto)
+-	set (Poco_DataODBC_LIBRARY PocoDataODBC)
+-	set (Poco_MongoDB_LIBRARY PocoMongoDB)
+-	set (Poco_Foundation_LIBRARY PocoFoundation)
+-	include_directories (BEFORE ${Poco_INCLUDE_DIRS})
+-else ()
++if (NOT USE_INTERNAL_POCO_LIBRARY)
+ 	find_package (Poco REQUIRED Util Net XML Data Crypto DataODBC MongoDB Foundation)
+ 	include_directories (${Poco_INCLUDE_DIRS})
+ endif ()
+--- a/contrib/CMakeLists.txt
++++ b/contrib/CMakeLists.txt
+@@ -1,28 +1,12 @@
+ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast")
+ 
+-if (USE_INTERNAL_BOOST_LIBRARY)
+-	add_subdirectory (libboost)
+-endif ()
+-
+-if (USE_INTERNAL_POCO_LIBRARY)
+-	add_subdirectory (libpoco)
+-endif ()
+-
+-add_subdirectory (liblz4)
+-add_subdirectory (libzstd)
+ add_subdirectory (libre2)
+-add_subdirectory (libdouble-conversion)
+-add_subdirectory (libzookeeper)
+ add_subdirectory (libcityhash)
+ add_subdirectory (libfarmhash)
+ add_subdirectory (libmetrohash)
+ add_subdirectory (libzlib-ng)
+ add_subdirectory (libcctz)
+ 
+-if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
+-	add_subdirectory (libtcmalloc)
+-endif ()
+-
+ if (NOT AARCH64)
+ 	add_subdirectory (libcpuid)
+ endif ()
+--- a/cmake/dbms_include.cmake
++++ b/cmake/dbms_include.cmake
+@@ -9,6 +9,4 @@ include_directories (${CMAKE_BINARY_DIR}
+ include_directories (${CMAKE_SOURCE_DIR}/libs/libpocoext/include)
+ include_directories (${CMAKE_SOURCE_DIR}/libs/libzkutil/include)
+ include_directories (${CMAKE_SOURCE_DIR}/libs/libmysqlxx/include)
+-include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libzookeeper/include)
+ include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libcityhash/include)
+-include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libdouble-conversion)
+--- a/dbms/CMakeLists.txt
++++ b/dbms/CMakeLists.txt
+@@ -1,12 +1,9 @@
+ include(${CMAKE_SOURCE_DIR}/cmake/dbms_include.cmake)
+ 
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/liblz4/include/)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libdivide)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libcpuid/include/)
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzstd/include/)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libfarmhash)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libmetrohash/src)
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libsparsehash)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libre2/)
+ include_directories (BEFORE ${ClickHouse_BINARY_DIR}/contrib/libre2/)
+ include_directories (${ClickHouse_SOURCE_DIR}/libs/libdaemon/include/)
+@@ -139,9 +136,9 @@ target_link_libraries(dbms
+ 	zkutil
+ 	mysqlxx
+ 	cityhash farmhash metrohash
+-	lz4 zstd
++	${LZ4_LIBRARY} ${ZSTD_LIBRARY}
+ 	string_utils
+-	double-conversion
++	${DOUBLECONV_LIBRARY}
+ 	${Z_LIB}
+ 	${LINK_LIBRARIES_ONLY_ON_X86_64}
+ 	re2 re2_st
+--- /dev/null
++++ b/cmake/find_double-conversion.cmake
+@@ -0,0 +1,5 @@
++find_path(DOUBLECONV_INCLUDE_DIR double-conversion/double-conversion.h)
++find_library(DOUBLECONV_LIBRARY double-conversion)
++include_directories (${DOUBLECONV_INCLUDE_DIR})
++
++message(STATUS "Using Double-conversion: ${DOUBLECONV_INCLUDE_DIR} : ${DOUBLECONV_LIBRARY}")
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -174,6 +174,11 @@ endif ()
+ include (cmake/find_openssl.cmake)
+ include (cmake/find_icu4c.cmake)
+ include (cmake/find_boost.cmake)
++include (cmake/find_double-conversion.cmake)
++include (cmake/find_lz4.cmake)
++include (cmake/find_libsparsehash.cmake)
++include (cmake/find_zookeeper.cmake)
++include (cmake/find_zstd.cmake)
+ include (cmake/find_poco.cmake)
+ include (cmake/find_libtool.cmake)
+ include (cmake/find_rt.cmake)
+--- /dev/null
++++ b/cmake/find_libsparsehash.cmake
+@@ -0,0 +1,4 @@
++find_path(SPARSEHASH_INCLUDE_DIR sparsehash/type_traits.h)
++include_directories (${SPARSEHASH_INCLUDE_DIR})
++
++message(STATUS "Using sparsehash: ${SPARSEHASH_INCLUDE_DIR}")
+--- /dev/null
++++ b/cmake/find_lz4.cmake
+@@ -0,0 +1,5 @@
++find_path(LZ4_INCLUDE_DIR lz4.h)
++find_library(LZ4_LIBRARY lz4)
++include_directories (${LZ4_INCLUDE_DIR})
++
++message(STATUS "Using lz4: ${LZ4_INCLUDE_DIR} : ${LZ4_LIBRARY}")
+--- /dev/null
++++ b/cmake/find_zookeeper.cmake
+@@ -0,0 +1,5 @@
++find_path(ZOOKEEPER_INCLUDE_DIR zookeeper/zookeeper.h)
++find_library(ZOOKEEPER_LIBRARY zookeeper_mt)
++include_directories (${ZOOKEEPER_INCLUDE_DIR})
++
++message(STATUS "Using zookeeper: ${ZOOKEEPER_INCLUDE_DIR} : ${ZOOKEEPER_LIBRARY}")
+--- /dev/null
++++ b/cmake/find_zstd.cmake
+@@ -0,0 +1,5 @@
++find_path(ZSTD_INCLUDE_DIR zstd.h)
++find_library(ZSTD_LIBRARY zstd)
++include_directories (${ZSTD_INCLUDE_DIR})
++
++message(STATUS "Using zstd: ${ZSTD_INCLUDE_DIR} : ${ZSTD_LIBRARY}")
+--- a/utils/compressor/CMakeLists.txt
++++ b/utils/compressor/CMakeLists.txt
+@@ -1,10 +1,8 @@
+ 
+-include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libzstd/include)
+-
+ add_executable (clickhouse-compressor main.cpp)
+ target_link_libraries (clickhouse-compressor dbms ${Boost_PROGRAM_OPTIONS_LIBRARY})
+ 
+ install (TARGETS clickhouse-compressor RUNTIME DESTINATION bin COMPONENT clickhouse-compressor)
+ 
+ add_executable (zstd_test zstd_test.cpp)
+-target_link_libraries (zstd_test zstd)
++target_link_libraries (zstd_test ${ZSTD_LIBRARY})
+--- a/libs/libzkutil/CMakeLists.txt
++++ b/libs/libzkutil/CMakeLists.txt
+@@ -23,6 +23,6 @@ add_library(zkutil
+ 
+ find_package (Threads)
+ 
+-target_link_libraries(zkutil zookeeper ${Poco_Foundation_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} string_utils)
++target_link_libraries(zkutil ${ZOOKEEPER_LIBRARY} ${Poco_Foundation_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} string_utils)
+ 
+ add_subdirectory (src)
+--- a/dbms/src/IO/CompressedReadBufferBase.cpp
++++ b/dbms/src/IO/CompressedReadBufferBase.cpp
+@@ -8,8 +8,8 @@
+ 	#include <quicklz/quicklz_level1.h>
+ #endif
+ 
+-#include <lz4/lz4.h>
+-#include <zstd/zstd.h>
++#include <lz4.h>
++#include <zstd.h>
+ 
+ #include <DB/Common/PODArray.h>
+ #include <DB/Common/ProfileEvents.h>
+--- a/dbms/src/IO/CompressedWriteBuffer.cpp
++++ b/dbms/src/IO/CompressedWriteBuffer.cpp
+@@ -5,9 +5,9 @@
+ 	#include <quicklz/quicklz_level1.h>
+ #endif
+ 
+-#include <lz4/lz4.h>
+-#include <lz4/lz4hc.h>
+-#include <zstd/zstd.h>
++#include <lz4.h>
++#include <lz4hc.h>
++#include <zstd.h>
+ 
+ #include <DB/Common/unaligned.h>
+ 

@@ -14,19 +14,31 @@ ifndef THREADS_COUNT
     THREADS_COUNT=`grep -c ^processor /proc/cpuinfo`
 endif
 
-BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor config-processor corrector_utf8
+BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
 
 %:
 	dh $@ --parallel --max-parallel=4 --buildsystem=cmake
+
+override_dh_auto_configure:
 
 override_dh_auto_test:
 	./debian/tests_wrapper.sh
 
 override_dh_auto_build:
+	# Remove some embedded libs since we use system ones
+	# quilt patch doesn't work here becasue of some zip files in directory tree
+	rm -rf contrib/libboost
+	rm -rf contrib/libpoco
+	rm -rf contrib/libtcmalloc
+	rm -rf contrib/libdouble-conversion
+	rm -rf contrib/liblz4
+	rm -rf contrib/libsparsehash
+	rm -rf contrib/libzookeeper
+	rm -rf contrib/libzstd
 	dh_testdir
 	# for building Debug run: debuild -e CMAKE_BUILD_TYPE=Debug
 	# for building with shared libs run: debuild -e USE_STATIC_LIBRARIES=0
-	mkdir -p build && cd build && cmake ..
+	mkdir -p build && cd build && cmake .. -DUSE_INTERNAL_BOOST_LIBRARY=0 -DUSE_INTERNAL_GPERFTOOLS_LIBRARY=0 -DUSE_INTERNAL_POCO_LIBRARY=0
 	# TODO: возможно надо исправить
 	# последовательно запускаем make для каждой из целей.
 	# т.к. при параллельном запуске (make target1 target2) несколько раз одновременно создаются бинарники
