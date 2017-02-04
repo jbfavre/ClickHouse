@@ -55,7 +55,7 @@ option (ENABLE_TESTS "Enables tests" ON)
 
 option (USE_STATIC_LIBRARIES "Set to FALSE to use shared libraries" ON)
 if (USE_STATIC_LIBRARIES)
-	set (CMAKE_FIND_LIBRARY_SUFFIXES ".a;.so")
+	list(REVERSE CMAKE_FIND_LIBRARY_SUFFIXES)
 endif ()
 
 set (USE_INTERNAL_BOOST_LIBRARY TRUE CACHE BOOL "Set to FALSE to use system boost library instead of bundled")
@@ -125,11 +125,11 @@ if (NOT APPLE)
 	set (CMAKE_EXE_LINKER_FLAGS          "${CMAKE_EXE_LINKER_FLAGS} ${GLIBC_COMPATIBILITY_LINK_FLAGS} ${CXX11_ABI_FLAGS}")
 endif ()
 
-if (USE_STATIC_LIBRARIES AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	set (CMAKE_CXX_FLAGS                 "${CMAKE_CXX_FLAGS} -no-pie")
-	set (CMAKE_C_FLAGS                   "${CMAKE_C_FLAGS} -no-pie")
+include (cmake/test_compiler.cmake)
+if (USE_STATIC_LIBRARIES AND HAVE_NO_PIE)
+	set (CMAKE_CXX_FLAGS                 "${CMAKE_CXX_FLAGS} ${FLAG_NO_PIE}")
+	set (CMAKE_C_FLAGS                   "${CMAKE_C_FLAGS} ${FLAG_NO_PIE}")
 endif ()
-
 
 set (SAN_FLAGS "-O3 -g -fno-omit-frame-pointer")
 set (CMAKE_CXX_FLAGS_ASAN                "${CMAKE_CXX_FLAGS_ASAN}  ${SAN_FLAGS} -fsanitize=address")

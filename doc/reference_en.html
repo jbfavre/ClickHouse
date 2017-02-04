@@ -2481,7 +2481,7 @@ The Distributed engine allows working with a cluster like a local server. Howeve
 
 There is no support for Distributed tables that look at other Distributed tables (except in cases when a Distributed table only has one shard). As an alternative, make the Distributed table look at the &quot;final&quot; tables.
 
-The Distributed engine requires writing clusters to the config file. Adding clusters and servers requires restarting. If you need to send a query to an unknown set of shards and replicas each time, you don&#39;t need to create a Distributed table - use the &#39;remote&#39; table function instead. See the section &quot;Table functions&quot;.
+The Distributed engine requires writing clusters to the config file. Clusters from config are updated on the fly, it does not require server restart. If you need to send a query to an unknown set of shards and replicas each time, you don&#39;t need to create a Distributed table - use the &#39;remote&#39; table function instead. See the section &quot;Table functions&quot;.
 
 There are two methods for writing data to a cluster:
 
@@ -2723,6 +2723,23 @@ ORDER BY StartDate;
 You can create a materialized view like this and assign a normal view to it that finishes data aggregation.
 
 Note that in most cases, using AggregatingMergeTree is not justified, since queries can be run efficiently enough on non-aggregated data.
+
+
+==ReplacingMergeTree==
+
+This engine differs from MergeTree in that it can deduplicate data by primary key while merging.
+
+For ReplacingMergeTree mode, last parameter is optional name of 'version' column. While merging, for all rows with same primary key, only one row is selected: last row, if version column was not specified, or last row with maximum version value, if specified.
+
+Version column must have type of UInt family or Date or DateTime.
+
+%%ReplacingMergeTree(EventDate, (OrderID, EventDate, BannerID, ...), 8192, ver)%%
+
+Please note, that data is deduplicated only while merging process. Merges are processed in background. Exact time of merge is unspecified and you could not rely on it. Some part of data could be not merged at all. While you could trigger extra merge with OPTIMIZE query, it is not recommended, as OPTIMIZE will read and write vast amount of data.
+
+This table engine is suitable for background removal of duplicate data to save space, but not suitable to guarantee of deduplication.
+
+Developed for special purposes of not Yandex.Metrica department.
 
 
 ==Null==
