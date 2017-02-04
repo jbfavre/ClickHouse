@@ -35,6 +35,7 @@ override_dh_auto_build:
 	rm -rf contrib/libsparsehash
 	rm -rf contrib/libzookeeper
 	rm -rf contrib/libzstd
+	rm -rf contrib/libzlib-ng
 	dh_testdir
 	# for building Debug run: debuild -e CMAKE_BUILD_TYPE=Debug
 	# for building with shared libs run: debuild -e USE_STATIC_LIBRARIES=0
