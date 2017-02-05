@@ -9,16 +9,6 @@
  			args.zookeeper = True
  		except CalledProcessError:
  			args.zookeeper = False
---- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
-+++ /dev/null
-@@ -1,2 +0,0 @@
--1	Hello
--2	Hello
---- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
-+++ /dev/null
-@@ -1,2 +0,0 @@
--SET compile = 1, min_count_to_compile = 0, max_threads = 1;
--SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
 --- a/dbms/tests/queries/0_stateless/00383_utf8_validation.reference
 +++ /dev/null
 @@ -1,16 +0,0 @@
