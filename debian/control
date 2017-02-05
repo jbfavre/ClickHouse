@@ -11,13 +11,10 @@ Build-Depends: debhelper (>= 9), cmake, gcc-6, g++-6, libicu-dev,
                libpoco-dev, liblz4-dev, libsparsehash-dev, libzookeeper-mt-dev,
                libzstd-dev, libdouble-conversion-dev,
                clang, python, python-lxml, python-termcolor, curl, perl
-# Future dependencies (after libs unbundle ongoing work completion)
-# libboost-dev, libboost-thread-dev, libboost-program-options-dev,
-# libboost-system-dev, libboost-regex-dev, libboost-filesystem-dev,
 Standards-Version: 3.9.8
 Homepage: https://clickhouse.yandex/
-#Vcs-Git: https://anonscm.debian.org/collab-maint/clickhouse.git
-#Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/clickhouse.git
+Vcs-Git: https://github.com/jbfavre/clickhouse.git
+Vcs-Browser: https://github.com/jbfavre/clickhouse/
 
 Package: clickhouse-common
 Section: database
