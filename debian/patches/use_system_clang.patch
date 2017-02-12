@@ -11,3 +11,34 @@
  		" -x c++ -std=gnu++1y -O3 -g -Wall -Werror -Wnon-virtual-dtor -march=native -msse4 -mpopcnt -D NDEBUG"
  	#if _GLIBCXX_USE_CXX11_ABI == 0
  		" -D_GLIBCXX_USE_CXX11_ABI=0"
+@@ -192,21 +190,19 @@ void Compiler::compile(
+ 		" -D_GLIBCXX_USE_CXX11_ABI=1"
+ 	#endif
+ 		" -shared -fPIC -fvisibility=hidden -fno-implement-inlines"
+-		" -isystem /usr/share/clickhouse/headers/usr/local/include/"
+-		" -isystem /usr/share/clickhouse/headers/usr/include/"
+-		" -isystem /usr/share/clickhouse/headers/usr/include/mysql/"
+-		" -isystem /usr/share/clickhouse/headers/usr/include/c++/*/"
+-		" -isystem /usr/share/clickhouse/headers/usr/include/x86_64-linux-gnu/"
+-		" -isystem /usr/share/clickhouse/headers/usr/include/x86_64-linux-gnu/c++/*/"
+-		" -isystem /usr/share/clickhouse/headers/usr/local/lib/clang/*/include/"
++		" -isystem /usr/include/"
++		" -isystem /usr/include/mysql/"
++		" -isystem /usr/include/c++/*/"
++		" -isystem /usr/include/x86_64-linux-gnu/"
++		" -isystem /usr/include/x86_64-linux-gnu/c++/*/"
++		" -isystem /usr/lib/clang/*/include/"
+ 		" -I /usr/share/clickhouse/headers/dbms/include/"
+ 		" -I /usr/share/clickhouse/headers/contrib/libcityhash/include/"
+-		" -I /usr/share/clickhouse/headers/contrib/libdouble-conversion/"
+-		" -I /usr/share/clickhouse/headers/contrib/libpoco/Foundation/include/"
+-		" -I /usr/share/clickhouse/headers/contrib/libpoco/Util/include/"
+-		" -I /usr/share/clickhouse/headers/contrib/libboost/boost_1_62_0/"
+ 		" -I /usr/share/clickhouse/headers/libs/libcommon/include/"
+ 		" -I /usr/share/clickhouse/headers/libs/libmysqlxx/include/"
++		" -I libs/libcommon/include/"
++		" -I libs/libmysqlxx/include/"
++		" -I dbms/include/DB/*/"
+ 		" " << additional_compiler_flags <<
+ 		" -o " << so_tmp_file_path << " " << cpp_file_path
+ 		<< " 2>&1 || echo Exit code: $?";

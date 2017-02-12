@@ -47,7 +47,7 @@
  endif ()
 --- a/contrib/CMakeLists.txt
 +++ b/contrib/CMakeLists.txt
-@@ -1,28 +1,11 @@
+@@ -1,28 +1,12 @@
  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast")
  
 -if (USE_INTERNAL_BOOST_LIBRARY)
@@ -66,7 +66,7 @@
  add_subdirectory (libcityhash)
  add_subdirectory (libfarmhash)
  add_subdirectory (libmetrohash)
--add_subdirectory (libzlib-ng)
+ add_subdirectory (libzlib-ng)
  add_subdirectory (libcctz)
  
 -if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
@@ -100,21 +100,7 @@
  include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libre2/)
  include_directories (BEFORE ${ClickHouse_BINARY_DIR}/contrib/libre2/)
  include_directories (${ClickHouse_SOURCE_DIR}/libs/libdaemon/include/)
-@@ -120,12 +117,7 @@ else()
-     set(PLATFORM_LIBS "")
- endif()
- 
--if (USE_STATIC_LIBRARIES)
--	set (Z_LIB zlibstatic)
--else()
--	set (Z_HINTS "/usr/local/opt/zlib/lib")
--	find_library (Z_LIB z HINTS ${Z_HINTS})
--endif ()
-+include (${CMAKE_SOURCE_DIR}/cmake/find_zlib.cmake)
- 
- include (${CMAKE_SOURCE_DIR}/cmake/find_iconv.cmake)
- find_package (Threads)
-@@ -135,10 +127,10 @@ target_link_libraries(dbms
+@@ -139,9 +136,9 @@ target_link_libraries(dbms
  	zkutil
  	mysqlxx
  	cityhash farmhash metrohash
@@ -122,12 +108,10 @@
 +	${LZ4_LIBRARY} ${ZSTD_LIBRARY}
  	string_utils
 -	double-conversion
--	${Z_LIB}
 +	${DOUBLECONV_LIBRARY}
-+	${ZLIB_LIBRARY}
+ 	${Z_LIB}
  	${LINK_LIBRARIES_ONLY_ON_X86_64}
  	re2 re2_st
- 	${OPENSSL_CRYPTO_LIBRARY}
 --- /dev/null
 +++ b/cmake/find_double-conversion.cmake
 @@ -0,0 +1,5 @@
@@ -138,7 +122,7 @@
 +message(STATUS "Using Double-conversion: ${DOUBLECONV_INCLUDE_DIR} : ${DOUBLECONV_LIBRARY}")
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -169,12 +169,18 @@ endif ()
+@@ -169,6 +169,11 @@ endif ()
  include (cmake/find_openssl.cmake)
  include (cmake/find_icu4c.cmake)
  include (cmake/find_boost.cmake)
@@ -150,13 +134,6 @@
  include (cmake/find_poco.cmake)
  include (cmake/find_libtool.cmake)
  include (cmake/find_rt.cmake)
- include (cmake/find_readline_edit.cmake)
- include (cmake/find_gperftools.cmake)
- include (cmake/find_jemalloc.cmake)
-+include (cmake/find_zlib.cmake)
- 
- set(FULL_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE}}")
- set(FULL_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}}")
 --- /dev/null
 +++ b/cmake/find_libsparsehash.cmake
 @@ -0,0 +1,4 @@
@@ -240,38 +217,26 @@
  
  #include <DB/Common/unaligned.h>
  
---- /dev/null
-+++ b/cmake/find_zlib.cmake
-@@ -0,0 +1,5 @@
-+find_package( ZLIB REQUIRED )
-+if ( ZLIB_FOUND )
-+    include_directories( ${ZLIB_INCLUDE_DIR} )
-+endif( ZLIB_FOUND )
-+message(STATUS "Using zlib: ${ZLIB_INCLUDE_DIR} : ${ZLIB_LIBRARY}")
---- a/libs/libmysqlxx/CMakeLists.txt
-+++ b/libs/libmysqlxx/CMakeLists.txt
-@@ -38,22 +38,9 @@ add_dependencies (mysqlxx common)
- 
- set(PLATFORM_LIBS ${CMAKE_DL_LIBS})
- 
--if (USE_STATIC_LIBRARIES)
--	set (MYSQLCLIENT_LIB ${CMAKE_CURRENT_BINARY_DIR}/libmysqlclient.a)
--	add_custom_command (
--		OUTPUT ${MYSQLCLIENT_LIB}
--		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/patch.sh ${STATIC_MYSQLCLIENT_LIB} ${MYSQLCLIENT_LIB}
--		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
--		COMMENT "Patching mysqlclient library.")
--	add_custom_target (our_mysql_client DEPENDS ${MYSQLCLIENT_LIB})
--	add_dependencies (mysqlxx our_mysql_client)
--	set (Z_LIB zlibstatic)
--else ()
--	set (Z_PATHS "/usr/local/opt/zlib/lib" ${MYSQL_LIB_PATHS})
--	find_library (Z_LIB z PATHS ${Z_PATHS})
--endif ()
-+include (${CMAKE_SOURCE_DIR}/cmake/find_zlib.cmake)
- 
--target_link_libraries (mysqlxx common ${MYSQLCLIENT_LIB} ${OPENSSL_LIBRARIES} ${Z_LIB} ${PLATFORM_LIBS})
-+target_link_libraries (mysqlxx common ${MYSQLCLIENT_LIB} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARY} ${PLATFORM_LIBS})
- 
- if (ENABLE_TESTS)
- 	add_subdirectory (src/tests)
+--- a/copy_headers.sh
++++ b/copy_headers.sh
+@@ -27,19 +27,10 @@ for src_file in $(clang -M -xc++ -std=gn
+ 	"$SOURCE_PATH/dbms/include/DB/Interpreters/SpecializedAggregator.h" |
+ 	tr -d '\\' |
+ 	grep -v '.o:' |
+-	sed -r -e 's/^.+\.cpp / /');
++	sed -r -e 's/^.+\.cpp / /'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
+ do
+ 	# Для совместимости со случаем сборки ClickHouse из репозитория Метрики, удаляем префикс ClickHouse из результирующих путей.
+ 	dst_file=$(echo $src_file | sed -r -e 's/^ClickHouse\///');
+ 	mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
+ 	cp "$src_file" "$DST/$dst_file";
+ done
+-
+-
+-# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
+-#  заголовочные файлы, будет использоваться опция -march=native.
+-
+-for i in $(ls -1 $(clang -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-do
+-	cp "$i" "$DST/$i";
+-done

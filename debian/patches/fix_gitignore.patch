@@ -1,3 +1,40 @@
+--- a/dbms/src/Server/data/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*.bin
+-*.mrk
+--- a/dbms/src/Server/data/default/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*.bin
+-*.mrk
+--- a/dbms/tests/.gitignore
++++ /dev/null
+@@ -1,4 +0,0 @@
+-*.result
+-*.diff
+-*.error
+-test_data
+--- a/dbms/tests/external_dictionaries/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-clickhouse.log
+-*-preprocessed.xml
+--- a/dbms/tests/external_dictionaries/clickhouse/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*
+-!.gitignore
+--- a/dbms/tests/external_dictionaries/generated/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*
+-!.gitignore
+--- a/dbms/tests/queries/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-*.stderr
+-*.stdout
 --- a/.gitignore
 +++ /dev/null
 @@ -1,225 +0,0 @@
@@ -226,40 +263,3 @@
 -
 -# Ignore symlink to private repository
 -/private
---- a/dbms/src/Server/data/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*.bin
--*.mrk
---- a/dbms/src/Server/data/default/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*.bin
--*.mrk
---- a/dbms/tests/.gitignore
-+++ /dev/null
-@@ -1,4 +0,0 @@
--*.result
--*.diff
--*.error
--test_data
---- a/dbms/tests/external_dictionaries/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--clickhouse.log
--*-preprocessed.xml
---- a/dbms/tests/external_dictionaries/clickhouse/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*
--!.gitignore
---- a/dbms/tests/external_dictionaries/generated/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*
--!.gitignore
---- a/dbms/tests/queries/.gitignore
-+++ /dev/null
-@@ -1,2 +0,0 @@
--*.stderr
--*.stdout
