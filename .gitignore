@@ -223,4 +223,3 @@ config-preprocessed.xml
 
 # Ignore symlink to private repository
 /private
-clickhouse.iml
