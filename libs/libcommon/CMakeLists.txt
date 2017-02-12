@@ -1,7 +1,10 @@
-SET(CONFIG_VERSION ${CMAKE_CURRENT_BINARY_DIR}/include/common/config_version.h)
-SET(CONFIG_COMMON ${CMAKE_CURRENT_BINARY_DIR}/include/common/config_common.h)
+set (CONFIG_VERSION ${CMAKE_CURRENT_BINARY_DIR}/include/common/config_version.h)
+set (CONFIG_COMMON ${CMAKE_CURRENT_BINARY_DIR}/include/common/config_common.h)
+set (CONFIG_BUILD ${CMAKE_CURRENT_BINARY_DIR}/include/common/config_build.h)
 
 include_directories (include)
+include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libcctz/include)
+
 include(${CMAKE_SOURCE_DIR}/cmake/dbms_include.cmake)
 
 if (APPLE)
@@ -10,19 +13,25 @@ if (APPLE)
 	else ()
 		set (APPLE_SIERRA_OR_NEWER 0)
 	endif ()
-endif()
+endif ()
 
-include(cmake/version.cmake)
-message(STATUS "Will build ${VERSION_FULL}")
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/common/config_common.h.in ${CONFIG_COMMON})
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/common/config_version.h.in ${CONFIG_VERSION})
+include (cmake/version.cmake)
+message (STATUS "Will build ${VERSION_FULL}")
+configure_file (${CMAKE_CURRENT_SOURCE_DIR}/include/common/config_common.h.in ${CONFIG_COMMON})
+configure_file (${CMAKE_CURRENT_SOURCE_DIR}/include/common/config_version.h.in ${CONFIG_VERSION})
+
+get_property (BUILD_COMPILE_DEFINITIONS DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY COMPILE_DEFINITIONS)
+get_property (BUILD_INCLUDE_DIRECTORIES DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+
+string (TIMESTAMP BUILD_DATE UTC)
+configure_file (${CMAKE_CURRENT_SOURCE_DIR}/include/common/config_build.h.in ${CONFIG_BUILD})
 
 if (APPLE)
 	add_library (apple_rt
 		src/apple_rt.cpp
 		include/common/apple_rt.h
 	)
-endif()
+endif ()
 
 add_library (common
 	src/DateLUT.cpp
@@ -62,29 +71,31 @@ add_library (common
 	${CONFIG_COMMON}
 )
 
-# When testing for memory leaks, disable libtcmalloc.
-if (ENABLE_LIBTCMALLOC)
+# When testing for memory leaks, dont link tcmalloc or jemalloc.
+
+if (USE_JEMALLOC)
+		message (STATUS "Link jemalloc : ${JEMALLOC_LIBRARIES}")
+	set (MALLOC_LIBRARIES ${JEMALLOC_LIBRARIES})
+elseif (USE_TCMALLOC)
 	if (DEBUG_LIBTCMALLOC)
 		message (STATUS "Link libtcmalloc_minimal_debug for testing")
 		set (MALLOC_LIBRARIES libtcmalloc_minimal_debug.a)
 	else ()
-		message (STATUS "Link libtcmalloc_minimal")
+		message (STATUS "Link libtcmalloc_minimal : ${GPERFTOOLS_TCMALLOC}")
 		set (MALLOC_LIBRARIES ${GPERFTOOLS_TCMALLOC})
 	endif ()
 else ()
 	message (STATUS "Disabling libtcmalloc for valgrind better analysis")
 endif ()
 
-include (${ClickHouse_SOURCE_DIR}/cmake/find_glib.cmake)
-
 find_package (Threads)
 
 target_link_libraries (
 	common
 	pocoext
+	cctz
 	${MALLOC_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
-	${GLIB_LIBS}
 	${ICU_LIBS}
 	${RT_LIBRARIES})
 

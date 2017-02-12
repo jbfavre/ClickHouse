@@ -182,6 +182,7 @@ static std::tuple<ASTPtr, BlockIO> executeQueryImpl(
 		{
 			process_list_entry = context.getProcessList().insert(
 				query,
+				ast.get(),
 				context.getClientInfo(),
 				settings);
 
@@ -190,6 +191,10 @@ static std::tuple<ASTPtr, BlockIO> executeQueryImpl(
 
 		auto interpreter = InterpreterFactory::get(ast, context, stage);
 		res = interpreter->execute();
+
+		/// Delayed initialization of query streams (required for KILL QUERY purposes)
+		if (process_list_entry)
+			(*process_list_entry)->setQueryStreams(res);
 
 		/// Hold element of process list till end of query execution.
 		res.process_list_entry = process_list_entry;
@@ -423,8 +428,16 @@ void executeQuery(
 
 			if (auto stream = dynamic_cast<IProfilingBlockInputStream *>(streams.in.get()))
 			{
+				/// Save previous progress callback if any. TODO Do it more conveniently.
+				auto previous_progress_callback = context.getProgressCallback();
+
 				/// NOTE Progress callback takes shared ownership of 'out'.
-				stream->setProgressCallback([out] (const Progress & progress) { out->onProgress(progress); });
+				stream->setProgressCallback([out, previous_progress_callback] (const Progress & progress)
+				{
+					if (previous_progress_callback)
+						previous_progress_callback(progress);
+					out->onProgress(progress);
+				});
 			}
 
 			if (set_content_type)

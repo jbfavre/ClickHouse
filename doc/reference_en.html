@@ -773,7 +773,7 @@ There is official JDBC driver for ClickHouse. See <a href="https://github.com/ya
 
 ==Third-party client libraries==
 
-There exist third-party client libraries for Python (<a href="https://github.com/Infinidat/infi.clickhouse_orm">1</a>), PHP (<a href="https://github.com/8bitov/clickhouse-php-client">1</a>, <a href="https://github.com/SevaCode/PhpClickHouseClient">2</a>, <a href="https://github.com/smi2/phpClickHouse">3</a>), Go (<a href="https://github.com/roistat/go-clickhouse">1</a>), Node.js (<a href="https://github.com/TimonKK/clickhouse">1</a>, <a href="https://github.com/apla/node-clickhouse">2</a>), Perl (<a href="https://github.com/elcamlost/perl-DBD-ClickHouse">1</a>, <a href="https://metacpan.org/release/HTTP-ClickHouse">2</a>, <a href="https://metacpan.org/release/AnyEvent-ClickHouse">3</a>), Ruby (<a href="https://github.com/archan937/clickhouse">1</a>), R (<a href="https://github.com/hannesmuehleisen/clickhouse-r">1</a>).
+There exist third-party client libraries for Python (<a href="https://github.com/Infinidat/infi.clickhouse_orm">1</a>, <a href="https://github.com/cloudflare/sqlalchemy-clickhouse">2</a>), PHP (<a href="https://github.com/8bitov/clickhouse-php-client">1</a>, <a href="https://github.com/SevaCode/PhpClickHouseClient">2</a>, <a href="https://github.com/smi2/phpClickHouse">3</a>), Go (<a href="https://github.com/kshvakov/clickhouse/">1</a>, <a href="https://github.com/roistat/go-clickhouse">2</a>), Node.js (<a href="https://github.com/TimonKK/clickhouse">1</a>, <a href="https://github.com/apla/node-clickhouse">2</a>), Perl (<a href="https://github.com/elcamlost/perl-DBD-ClickHouse">1</a>, <a href="https://metacpan.org/release/HTTP-ClickHouse">2</a>, <a href="https://metacpan.org/release/AnyEvent-ClickHouse">3</a>), Ruby (<a href="https://github.com/archan937/clickhouse">1</a>), R (<a href="https://github.com/hannesmuehleisen/clickhouse-r">1</a>).
 
 Libraries was not tested by us. Ordering is arbitrary.
 
@@ -1447,10 +1447,12 @@ To make settings that persist after a server restart, you can only use the serve
 
 ===OPTIMIZE===
 
-%%OPTIMIZE TABLE [db.]name%%
+%%OPTIMIZE TABLE [db.]name [PARTITION partition] [FINAL]%%
 
 Asks the table engine to do something for optimization.
 Supported only by *MergeTree engines, in which this query initializes a non-scheduled merge of data parts.
+If PARTITION is specified, then only specified partition will be optimized.
+If FINAL is specified, then optimization will be performed even if data inside the partition already optimized (i. e. all data is in single part).
 
 
 ===INSERT===
@@ -2479,7 +2481,7 @@ The Distributed engine allows working with a cluster like a local server. Howeve
 
 There is no support for Distributed tables that look at other Distributed tables (except in cases when a Distributed table only has one shard). As an alternative, make the Distributed table look at the &quot;final&quot; tables.
 
-The Distributed engine requires writing clusters to the config file. Adding clusters and servers requires restarting. If you need to send a query to an unknown set of shards and replicas each time, you don&#39;t need to create a Distributed table - use the &#39;remote&#39; table function instead. See the section &quot;Table functions&quot;.
+The Distributed engine requires writing clusters to the config file. Clusters from config are updated on the fly, it does not require server restart. If you need to send a query to an unknown set of shards and replicas each time, you don&#39;t need to create a Distributed table - use the &#39;remote&#39; table function instead. See the section &quot;Table functions&quot;.
 
 There are two methods for writing data to a cluster:
 
@@ -4505,7 +4507,7 @@ For example, you can&#39;t compare a date with a string. You have to use a funct
 
 Strings are compared by bytes. A shorter string is smaller than all strings that start with it and that contain at least one more character.
 
-Signed and unsigned numbers are compared the same way as in C++. That is, you can get an incorrect result in some cases. Example: SELECT 9223372036854775807 > -1
+Note: before version 1.1.54134 signed and unsigned numbers were compared the same way as in C++. That is, you could got an incorrect result in such cases: SELECT 9223372036854775807 > -1. From version 1.1.54134, the behavior has changed and numbers are compared mathematically correct.
 
 
 ===equals, a = b and a == b operator===
