@@ -1,6 +1,6 @@
 --- a/dbms/tests/clickhouse-test
 +++ b/dbms/tests/clickhouse-test
-@@ -57,7 +57,7 @@ def main(args):
+@@ -58,7 +58,7 @@ def main(args):
  
  	if args.zookeeper is None:
  		try:
