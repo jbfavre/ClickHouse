@@ -38,7 +38,7 @@ override_dh_auto_build:
 	dh_testdir
 	# for building Debug run: debuild -e CMAKE_BUILD_TYPE=Debug
 	# for building with shared libs run: debuild -e USE_STATIC_LIBRARIES=0
-	mkdir -p build && cd build && cmake .. -DUSE_INTERNAL_BOOST_LIBRARY=0 -DUSE_INTERNAL_GPERFTOOLS_LIBRARY=0 -DUSE_INTERNAL_POCO_LIBRARY=0
+	mkdir -p build && cd build && cmake .. -DUSE_INTERNAL_BOOST_LIBRARY=0 -DUSE_INTERNAL_GPERFTOOLS_LIBRARY=0 -DUSE_INTERNAL_POCO_LIBRARY=0 -DUSE_STATIC_LIBRARIES=0
 	# TODO: возможно надо исправить
 	# последовательно запускаем make для каждой из целей.
 	# т.к. при параллельном запуске (make target1 target2) несколько раз одновременно создаются бинарники
