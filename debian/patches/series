@@ -3,3 +3,4 @@ use_system_libs.patch
 use_system_clang.patch
 fix_tests.patch
 fix_gitignore.patch
+fix_external_libpoco.patch

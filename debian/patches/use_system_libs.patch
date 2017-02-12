@@ -12,18 +12,6 @@
  	set (Boost_USE_STATIC_LIBS ${USE_STATIC_LIBRARIES})
  	set (BOOST_ROOT "/usr/local")
  	find_package (Boost 1.55 COMPONENTS program_options system filesystem regex thread)
---- a/cmake/find_gperftools.cmake
-+++ b/cmake/find_gperftools.cmake
-@@ -1,8 +1,4 @@
--if (USE_INTERNAL_GPERFTOOLS_LIBRARY)
--	set(GPERFTOOLS_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/libtcmalloc/include/")
--	set(GPERFTOOLS_TCMALLOC tcmalloc_minimal_internal)
--	include_directories (BEFORE ${GPERFTOOLS_INCLUDE_DIR})
--else ()
-+if (NOT USE_INTERNAL_GPERFTOOLS_LIBRARY)
- 	find_package (Gperftools REQUIRED)
- 	include_directories (${GPERFTOOLS_INCLUDE_DIR})
- endif ()
 --- a/cmake/find_poco.cmake
 +++ b/cmake/find_poco.cmake
 @@ -1,29 +1,4 @@
@@ -59,7 +47,7 @@
  endif ()
 --- a/contrib/CMakeLists.txt
 +++ b/contrib/CMakeLists.txt
-@@ -1,27 +1,11 @@
+@@ -1,28 +1,12 @@
  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast")
  
 -if (USE_INTERNAL_BOOST_LIBRARY)
@@ -79,6 +67,7 @@
  add_subdirectory (libfarmhash)
  add_subdirectory (libmetrohash)
  add_subdirectory (libzlib-ng)
+ add_subdirectory (libcctz)
  
 -if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
 -	add_subdirectory (libtcmalloc)
@@ -111,7 +100,7 @@
  include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libre2/)
  include_directories (BEFORE ${ClickHouse_BINARY_DIR}/contrib/libre2/)
  include_directories (${ClickHouse_SOURCE_DIR}/libs/libdaemon/include/)
-@@ -143,9 +140,9 @@ target_link_libraries(dbms
+@@ -139,9 +136,9 @@ target_link_libraries(dbms
  	zkutil
  	mysqlxx
  	cityhash farmhash metrohash
@@ -133,7 +122,7 @@
 +message(STATUS "Using Double-conversion: ${DOUBLECONV_INCLUDE_DIR} : ${DOUBLECONV_LIBRARY}")
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -174,6 +174,11 @@ endif ()
+@@ -169,6 +169,11 @@ endif ()
  include (cmake/find_openssl.cmake)
  include (cmake/find_icu4c.cmake)
  include (cmake/find_boost.cmake)
@@ -230,12 +219,24 @@
  
 --- a/copy_headers.sh
 +++ b/copy_headers.sh
-@@ -27,7 +27,7 @@ for src_file in $(clang -M -xc++ -std=gn
+@@ -27,19 +27,10 @@ for src_file in $(clang -M -xc++ -std=gn
  	"$SOURCE_PATH/dbms/include/DB/Interpreters/SpecializedAggregator.h" |
  	tr -d '\\' |
  	grep -v '.o:' |
 -	sed -r -e 's/^.+\.cpp / /');
-+	sed -r -e 's/^.+\.cpp / /'grep -v '^  /');
++	sed -r -e 's/^.+\.cpp / /'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
  do
  	# Для совместимости со случаем сборки ClickHouse из репозитория Метрики, удаляем префикс ClickHouse из результирующих путей.
  	dst_file=$(echo $src_file | sed -r -e 's/^ClickHouse\///');
+ 	mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
+ 	cp "$src_file" "$DST/$dst_file";
+ done
+-
+-
+-# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
+-#  заголовочные файлы, будет использоваться опция -march=native.
+-
+-for i in $(ls -1 $(clang -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-do
+-	cp "$i" "$DST/$i";
+-done
