@@ -1,4 +1,3 @@
-use_clickhouse_user.patch
 use_system_libs.patch
 use_system_clang.patch
 fix_tests.patch
