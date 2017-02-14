@@ -1,16 +1,16 @@
 --- a/cmake/dbms_include.cmake
 +++ b/cmake/dbms_include.cmake
-@@ -9,6 +9,4 @@ include_directories (${CMAKE_BINARY_DIR}
- include_directories (${CMAKE_SOURCE_DIR}/libs/libpocoext/include)
- include_directories (${CMAKE_SOURCE_DIR}/libs/libzkutil/include)
- include_directories (${CMAKE_SOURCE_DIR}/libs/libmysqlxx/include)
--include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libzookeeper/include)
- include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libcityhash/include)
--include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libdouble-conversion)
+@@ -9,6 +9,4 @@ include_directories (${ClickHouse_BINARY
+ include_directories (${ClickHouse_SOURCE_DIR}/libs/libpocoext/include)
+ include_directories (${ClickHouse_SOURCE_DIR}/libs/libzkutil/include)
+ include_directories (${ClickHouse_SOURCE_DIR}/libs/libmysqlxx/include)
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzookeeper/include)
+ include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libcityhash/include)
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libdouble-conversion)
 --- a/dbms/CMakeLists.txt
 +++ b/dbms/CMakeLists.txt
 @@ -1,12 +1,9 @@
- include(${CMAKE_SOURCE_DIR}/cmake/dbms_include.cmake)
+ include(${ClickHouse_SOURCE_DIR}/cmake/dbms_include.cmake)
  
 -include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/liblz4/include/)
  include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libdivide)
@@ -22,7 +22,7 @@
  include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libre2/)
  include_directories (BEFORE ${ClickHouse_BINARY_DIR}/contrib/libre2/)
  include_directories (${ClickHouse_SOURCE_DIR}/libs/libdaemon/include/)
-@@ -136,9 +133,9 @@ target_link_libraries(dbms
+@@ -138,9 +135,9 @@ target_link_libraries(dbms
  	zkutil
  	mysqlxx
  	cityhash farmhash metrohash
@@ -44,7 +44,22 @@
 +message(STATUS "Using Double-conversion: ${DOUBLECONV_INCLUDE_DIR} : ${DOUBLECONV_LIBRARY}")
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -180,6 +180,11 @@ endif ()
+@@ -73,12 +73,12 @@ option (USE_INTERNAL_POCO_LIBRARY "Set t
+ 
+ if (CMAKE_SYSTEM MATCHES "FreeBSD")
+ 	set(NOT_FREEBSD 0)
++	option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_FREEBSD})
+ else ()
+ 	set(NOT_FREEBSD 1)
++	option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_UNBUNDLED})
+ endif ()
+ 
+-option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_FREEBSD})
+-
+ option (USE_INTERNAL_ZLIB_LIBRARY "Set to FALSE to use system zlib library instead of bundled" ${NOT_UNBUNDLED})
+ 
+ option (ENABLE_LIBTCMALLOC "Set to TRUE to enable libtcmalloc." ON)
+@@ -186,6 +186,11 @@ endif ()
  include (cmake/find_openssl.cmake)
  include (cmake/find_icu4c.cmake)
  include (cmake/find_boost.cmake)
@@ -91,7 +106,7 @@
 +++ b/utils/compressor/CMakeLists.txt
 @@ -1,10 +1,8 @@
  
--include_directories (BEFORE ${CMAKE_SOURCE_DIR}/contrib/libzstd/include)
+-include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzstd/include)
 -
  add_executable (clickhouse-compressor main.cpp)
  target_link_libraries (clickhouse-compressor dbms ${Boost_PROGRAM_OPTIONS_LIBRARY})
@@ -176,3 +191,14 @@
  add_subdirectory (libcityhash)
  add_subdirectory (libfarmhash)
  add_subdirectory (libmetrohash)
+@@ -22,10 +18,6 @@ endif ()
+ 
+ add_subdirectory (libcctz)
+ 
+-if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
+-	add_subdirectory (libtcmalloc)
+-endif ()
+-
+ if (NOT AARCH64)
+ 	add_subdirectory (libcpuid)
+ endif ()
