@@ -63,3 +63,11 @@ Description: Various utilities for clickhouse analytics db
  .
    - benchmark utility
    - compressor
+
+Package: clickhouse-libs
+Section: libs
+Architecture: any
+Depends: clickhouse-common, ${shlibs:Depends}, ${misc:Depends}
+Description: Clickhouse database library
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
