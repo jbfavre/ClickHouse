@@ -211,25 +211,9 @@ public:
 		throw Exception("Method updateHashWithValue is not supported for " + getName(), ErrorCodes::NOT_IMPLEMENTED);
 	}
 
-	size_t byteSize() const override
-	{
-		size_t res = getData().size() * sizeof(getData()[0]);
+	size_t byteSize() const override;
 
-		for (const auto & arena : arenas)
-			res += arena.get()->size();
-
-		return res;
-	}
-
-	size_t allocatedSize() const override
-	{
-		size_t res = getData().allocated_size() * sizeof(getData()[0]);
-
-		for (const auto & arena : arenas)
-			res += arena.get()->size();
-
-		return res;
-	}
+	size_t allocatedSize() const override;
 
 	void insertRangeFrom(const IColumn & from, size_t start, size_t length) override;
 
@@ -252,6 +236,29 @@ public:
 	ColumnPtr replicate(const Offsets_t & offsets) const override
 	{
 		throw Exception("Method replicate is not supported for ColumnAggregateFunction.", ErrorCodes::NOT_IMPLEMENTED);
+	}
+
+	Columns scatter(ColumnIndex num_columns, const Selector & selector) const override
+	{
+		/// Columns with scattered values will point to this column as the owner of values.
+		Columns columns(num_columns);
+		for (auto & column : columns)
+			column = std::make_shared<ColumnAggregateFunction>(*this);
+
+		size_t num_rows = size();
+
+		{
+			size_t reserve_size = num_rows / num_columns * 1.1;	/// 1.1 is just a guess. Better to use n-sigma rule.
+
+			if (reserve_size > 1)
+				for (auto & column : columns)
+					column->reserve(reserve_size);
+		}
+
+		for (size_t i = 0; i < num_rows; ++i)
+			static_cast<ColumnAggregateFunction &>(*columns[selector[i]]).data.push_back(data[i]);
+
+		return columns;
 	}
 
 	int compareAt(size_t n, size_t m, const IColumn & rhs_, int nan_direction_hint) const override
