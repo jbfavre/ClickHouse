@@ -1,0 +1,70 @@
+--- a/dbms/include/DB/AggregateFunctions/AggregateFunctionIf.h
++++ b/dbms/include/DB/AggregateFunctions/AggregateFunctionIf.h
+@@ -108,6 +108,11 @@ public:
+ 		return nested_func->allocatesMemoryInArena();
+ 	}
+ 
++	bool isState() const override
++	{
++		return nested_func->isState();
++	}
++
+ 	static void addFree(const IAggregateFunction * that, AggregateDataPtr place, const IColumn ** columns, size_t row_num, Arena * arena)
+ 	{
+ 		static_cast<const AggregateFunctionIf &>(*that).add(place, columns, row_num, arena);
+--- a/dbms/include/DB/AggregateFunctions/AggregateFunctionNull.h
++++ b/dbms/include/DB/AggregateFunctions/AggregateFunctionNull.h
+@@ -147,6 +147,11 @@ public:
+ 			to_concrete.insertDefault();
+ 		}
+ 	}
++
++	bool isState() const override
++	{
++		return nested_function->isState();
++	}
+ };
+ 
+ 
+--- a/dbms/src/Functions/FunctionsArray.cpp
++++ b/dbms/src/Functions/FunctionsArray.cpp
+@@ -2780,6 +2780,10 @@ void FunctionArrayReduce::executeImpl(Bl
+ 	/// AggregateFunction's states should be inserted into column using specific way
+ 	auto res_col_aggregate_function = typeid_cast<ColumnAggregateFunction *>(&res_col);
+ 
++	if (!res_col_aggregate_function && agg_func.isState())
++		throw Exception("State function " + agg_func.getName() + " inserts results into non-state column "
++						+ block.safeGetByPosition(result).type->getName(), ErrorCodes::ILLEGAL_COLUMN);
++
+ 	ColumnArray::Offset_t current_offset = 0;
+ 	for (size_t i = 0; i < rows; ++i)
+ 	{
+--- a/dbms/tests/queries/0_stateless/00424_aggregate_function_scalars_and_constants.reference
++++ b/dbms/tests/queries/0_stateless/00424_aggregate_function_scalars_and_constants.reference
+@@ -22,8 +22,8 @@
+ 2	200	101	['---']
+ 3	200	102	['igua']
+ 
+----
+----
++['---']
++['---']
+ 
+ 1
+ 0
+--- a/dbms/tests/queries/0_stateless/00424_aggregate_function_scalars_and_constants.sql
++++ b/dbms/tests/queries/0_stateless/00424_aggregate_function_scalars_and_constants.sql
+@@ -29,8 +29,11 @@ SELECT k, sumMerge(d), avgMerge(af_avg1)
+ DROP TABLE IF EXISTS test.agg_func_col;
+ 
+ SELECT '';
+-SELECT arrayReduce('groupUniqArrayIf', [CAST('---' AS Nullable(String)), CAST('---' AS Nullable(String))], [1, 1])[1];
+-SELECT arrayReduce('groupUniqArrayMerge', [arrayReduce('groupUniqArrayState', [CAST('---' AS Nullable(String)), CAST('---' AS Nullable(String))])])[1];
++SELECT arrayReduce('groupUniqArrayIf', ['---', '---', 't1'], [1, 1, 0]);
++SELECT arrayReduce('groupUniqArrayMergeIf',
++	[arrayReduce('groupUniqArrayState', ['---', '---']), arrayReduce('groupUniqArrayState', ['t1', 't'])],
++	[1, 0]
++);
+ 
+ SELECT '';
+ SELECT arrayReduce('avgState', [0]) IN (arrayReduce('avgState', [0, 1]), arrayReduce('avgState', [0]));
