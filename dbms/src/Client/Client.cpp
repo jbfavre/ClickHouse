@@ -2,28 +2,21 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <signal.h>
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <experimental/optional>
-
 #include <unordered_set>
 #include <algorithm>
-
 #include <boost/program_options.hpp>
-
 #include <Poco/File.h>
 #include <Poco/Util/Application.h>
-
-#include <common/ClickHouseRevision.h>
-
+#include <DB/Common/ClickHouseRevision.h>
 #include <DB/Common/Stopwatch.h>
-
 #include <DB/Common/Exception.h>
+#include <DB/Common/ShellCommand.h>
 #include <DB/Core/Types.h>
 #include <DB/Core/QueryProcessingStage.h>
-
 #include <DB/IO/ReadBufferFromFileDescriptor.h>
 #include <DB/IO/WriteBufferFromFileDescriptor.h>
 #include <DB/IO/WriteBufferFromFile.h>
@@ -31,10 +24,8 @@
 #include <DB/IO/ReadBufferFromMemory.h>
 #include <DB/IO/ReadHelpers.h>
 #include <DB/IO/WriteHelpers.h>
-
 #include <DB/DataStreams/AsynchronousBlockInputStream.h>
 #include <DB/DataStreams/TabSeparatedRowInputStream.h>
-
 #include <DB/Parsers/ParserQuery.h>
 #include <DB/Parsers/ASTSetQuery.h>
 #include <DB/Parsers/ASTUseQuery.h>
@@ -45,21 +36,14 @@
 #include <DB/Parsers/ASTIdentifier.h>
 #include <DB/Parsers/formatAST.h>
 #include <DB/Parsers/parseQuery.h>
-
 #include <DB/Interpreters/Context.h>
-
 #include <DB/Client/Connection.h>
-
 #include "InterruptListener.h"
-
 #include <DB/Common/ExternalTable.h>
 #include <DB/Common/UnicodeBar.h>
 #include <DB/Common/formatReadable.h>
 #include <DB/Columns/ColumnString.h>
-
 #include <DB/Common/NetException.h>
-
-#include <common/config_common.h>
 #include <common/readline_use.h>
 
 
@@ -132,6 +116,7 @@ private:
 
 	/// Console output.
 	WriteBufferFromFileDescriptor std_out {STDOUT_FILENO};
+	std::unique_ptr<ShellCommand> pager_cmd;
 	/// The user can specify to redirect query output to a file.
 	std::experimental::optional<WriteBufferFromFile> out_file_buf;
 	BlockOutputStreamPtr block_out_stream;
@@ -259,7 +244,7 @@ private:
 	{
 		time_t current_time = time(0);
 
-		/// Плохо быть навязчивым.
+		/// It's bad to be intrusive.
 		if (current_time % 3 != 0)
 			return false;
 
@@ -821,6 +806,12 @@ private:
 	void resetOutput()
 	{
 		block_out_stream = nullptr;
+		if (pager_cmd)
+		{
+			pager_cmd->in.close();
+			pager_cmd->wait();
+		}
+		pager_cmd = nullptr;
 		if (out_file_buf)
 		{
 			out_file_buf->next();
@@ -937,7 +928,18 @@ private:
 	{
 		if (!block_out_stream)
 		{
-			WriteBuffer * out_buf = &std_out;
+			WriteBuffer * out_buf = nullptr;
+			String pager = config().getString("pager", "");
+			if (!pager.empty())
+			{
+				pager_cmd = ShellCommand::execute(pager, true);
+				out_buf = &pager_cmd->in;
+			}
+			else
+			{
+				out_buf = &std_out;
+			}
+
 			String current_format = format;
 
 			/// The query can specify output format or output file.
@@ -1227,6 +1229,7 @@ public:
 			("password", 		boost::program_options::value<std::string>(),	"password")
 			("query,q", 		boost::program_options::value<std::string>(), 	"query")
 			("database,d", 		boost::program_options::value<std::string>(), 	"database")
+			("pager",		boost::program_options::value<std::string>(),	"pager")
 			("multiline,m",														"multiline")
 			("multiquery,n",													"multiquery")
 			("format,f",        boost::program_options::value<std::string>(), 	"default output format")
@@ -1317,6 +1320,8 @@ public:
 			config().setString("query", options["query"].as<std::string>());
 		if (options.count("database"))
 			config().setString("database", options["database"].as<std::string>());
+		if (options.count("pager"))
+			config().setString("pager", options["pager"].as<std::string>());
 
 		if (options.count("port") && !options["port"].defaulted())
 			config().setInt("port", options["port"].as<int>());

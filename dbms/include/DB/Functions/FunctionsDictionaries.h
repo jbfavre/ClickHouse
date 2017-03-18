@@ -1,13 +1,14 @@
 #pragma once
 
-#include <DB/DataTypes/DataTypesNumberFixed.h>
+#include <DB/DataTypes/DataTypesNumber.h>
 #include <DB/DataTypes/DataTypeArray.h>
 #include <DB/DataTypes/DataTypeString.h>
 #include <DB/DataTypes/DataTypeDate.h>
 #include <DB/DataTypes/DataTypeDateTime.h>
 #include <DB/DataTypes/DataTypeTuple.h>
 
-#include <DB/Columns/ColumnVector.h>
+#include <DB/Columns/ColumnsNumber.h>
+#include <DB/Columns/ColumnConst.h>
 #include <DB/Columns/ColumnArray.h>
 #include <DB/Columns/ColumnString.h>
 #include <DB/Columns/ColumnTuple.h>
@@ -201,7 +202,6 @@ public:
 			throw Exception("Dictionaries was not loaded. You need to check configuration file.", ErrorCodes::DICTIONARIES_WAS_NOT_LOADED);
 	}
 
-	/// Получить имя функции.
 	String getName() const override
 	{
 		return name;
@@ -210,7 +210,6 @@ public:
 	bool isVariadic() const override { return true; }
 	size_t getNumberOfArguments() const override { return 0; }
 
-	/// Получить тип результата по типам аргументов. Если функция неприменима для данных аргументов - кинуть исключение.
 	DataTypePtr getReturnTypeImpl(const DataTypes & arguments) const override
 	{
 		if (arguments.size() != 1 && arguments.size() != 2)
@@ -231,7 +230,6 @@ public:
 		return arguments[0];
 	}
 
-	/// Выполнить функцию над блоком.
 	void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result) override
 	{
 		/// Ключ словаря, определяющий "точку зрения".
@@ -297,7 +295,6 @@ public:
 			throw Exception("Dictionaries was not loaded. You need to check configuration file.", ErrorCodes::DICTIONARIES_WAS_NOT_LOADED);
 	}
 
-	/// Получить имя функции.
 	String getName() const override
 	{
 		return name;
@@ -306,7 +303,6 @@ public:
 	bool isVariadic() const override { return true; }
 	size_t getNumberOfArguments() const override { return 0; }
 
-	/// Получить тип результата по типам аргументов. Если функция неприменима для данных аргументов - кинуть исключение.
 	DataTypePtr getReturnTypeImpl(const DataTypes & arguments) const override
 	{
 		if (arguments.size() != 2 && arguments.size() != 3)
@@ -332,7 +328,6 @@ public:
 		return std::make_shared<DataTypeUInt8>();
 	}
 
-	/// Выполнить функцию над блоком.
 	void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result) override
 	{
 		/// Ключ словаря, определяющий "точку зрения".
@@ -433,7 +428,6 @@ public:
 			throw Exception("Dictionaries was not loaded. You need to check configuration file.", ErrorCodes::DICTIONARIES_WAS_NOT_LOADED);
 	}
 
-	/// Получить имя функции.
 	String getName() const override
 	{
 		return name;
@@ -442,7 +436,6 @@ public:
 	bool isVariadic() const override { return true; }
 	size_t getNumberOfArguments() const override { return 0; }
 
-	/// Получить тип результата по типам аргументов. Если функция неприменима для данных аргументов - кинуть исключение.
 	DataTypePtr getReturnTypeImpl(const DataTypes & arguments) const override
 	{
 		if (arguments.size() != 1 && arguments.size() != 2)
@@ -463,7 +456,6 @@ public:
 		return std::make_shared<DataTypeArray>(arguments[0]);
 	}
 
-	/// Выполнить функцию над блоком.
 	void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result) override
 	{
 		/// Ключ словаря, определяющий "точку зрения".
@@ -523,7 +515,7 @@ public:
 			block.safeGetByPosition(result).column = std::make_shared<ColumnConstArray>(
 				col_from->size(),
 				res,
-				std::make_shared<DataTypeArray>(std::make_shared<typename DataTypeFromFieldType<T>::Type>()));
+				std::make_shared<DataTypeArray>(std::make_shared<DataTypeNumber<T>>()));
 		}
 		else
 			throw Exception("Illegal column " + block.safeGetByPosition(arguments[0]).column->getName()
@@ -709,7 +701,6 @@ public:
 			throw Exception("Dictionaries was not loaded. You need to check configuration file.", ErrorCodes::DICTIONARIES_WAS_NOT_LOADED);
 	}
 
-	/// Получить имя функции.
 	String getName() const override
 	{
 		return name;
@@ -722,7 +713,6 @@ public:
 	///  even in face of fact that there are many different cities named Moscow.
 	bool isInjective(const Block &) override { return true; }
 
-	/// Получить тип результата по типам аргументов. Если функция неприменима для данных аргументов - кинуть исключение.
 	DataTypePtr getReturnTypeImpl(const DataTypes & arguments) const override
 	{
 		if (arguments.size() != 1 && arguments.size() != 2)
@@ -743,7 +733,6 @@ public:
 		return std::make_shared<DataTypeString>();
 	}
 
-	/// Выполнить функцию над блоком.
 	void executeImpl(Block & block, const ColumnNumbers & arguments, size_t result) override
 	{
 		RegionsNames::Language language = RegionsNames::Language::RU;

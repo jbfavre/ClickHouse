@@ -1,24 +1,20 @@
+﻿#include <DB/Functions/FunctionsArray.h>
+
 #include <DB/AggregateFunctions/IAggregateFunction.h>
 #include <DB/AggregateFunctions/AggregateFunctionFactory.h>
-
 #include <DB/Functions/FunctionFactory.h>
-#include <DB/Functions/FunctionsArray.h>
 #include <DB/Functions/FunctionsConversion.h>
 #include <DB/Functions/Conditional/getArrayType.h>
 #include <DB/Functions/Conditional/CondException.h>
-
 #include <DB/Common/HashTable/HashMap.h>
 #include <DB/Common/HashTable/ClearableHashMap.h>
-
 #include <DB/Parsers/ExpressionListParsers.h>
 #include <DB/Parsers/parseQuery.h>
 #include <DB/Parsers/ASTExpressionList.h>
 #include <DB/Parsers/ASTLiteral.h>
-
 #include <DB/Interpreters/AggregationCommon.h>
-
 #include <DB/Columns/ColumnTuple.h>
-
+#include <DB/Columns/ColumnAggregateFunction.h>
 #include <tuple>
 #include <array>
 
@@ -1068,7 +1064,6 @@ DataTypePtr FunctionArrayElement::getReturnTypeImpl(const DataTypes & arguments)
 	return array_type->getNestedType();
 }
 
-/// Выполнить функцию над блоком.
 void FunctionArrayElement::executeImpl(Block & block, const ColumnNumbers & arguments, size_t result)
 {
 	/// Check nullability.
@@ -1599,7 +1594,6 @@ FunctionPtr FunctionArrayEnumerateUniq::create(const Context & context)
 	return std::make_shared<FunctionArrayEnumerateUniq>();
 }
 
-/// Получить имя функции.
 String FunctionArrayEnumerateUniq::getName() const
 {
 	return name;
@@ -2723,10 +2717,6 @@ void FunctionArrayReduce::getReturnTypeAndPrerequisitesImpl(
 
 		aggregate_function = AggregateFunctionFactory().get(aggregate_function_name, argument_types);
 
-		/// Потому что владение состояниями агрегатных функций никуда не отдаётся.
-		if (aggregate_function->isState())
-			throw Exception("Using aggregate function with -State modifier in function arrayReduce is not supported", ErrorCodes::BAD_ARGUMENTS);
-
 		if (has_parameters)
 			aggregate_function->setParameters(params_row);
 		aggregate_function->setArguments(argument_types);
@@ -2752,12 +2742,15 @@ void FunctionArrayReduce::executeImpl(Block & block, const ColumnNumbers & argum
 
 	std::vector<const IColumn *> aggregate_arguments_vec(arguments.size() - 1);
 
+	bool is_const = true;
+
 	for (size_t i = 0, size = arguments.size() - 1; i < size; ++i)
 	{
 		const IColumn * col = block.getByPosition(arguments[i + 1]).column.get();
 		if (const ColumnArray * arr = typeid_cast<const ColumnArray *>(col))
 		{
 			aggregate_arguments_vec[i] = arr->getDataPtr().get();
+			is_const = false;
 		}
 		else if (const ColumnConstArray * arr = typeid_cast<const ColumnConstArray *>(col))
 		{
@@ -2774,9 +2767,16 @@ void FunctionArrayReduce::executeImpl(Block & block, const ColumnNumbers & argum
 		? *materialized_columns.front().get()
 		: *block.getByPosition(arguments[1]).column.get()).getOffsets();
 
+
 	ColumnPtr result_holder = block.safeGetByPosition(result).type->createColumn();
-	block.safeGetByPosition(result).column = result_holder;
-	IColumn & res_col = *result_holder.get();
+	IColumn & res_col = *result_holder;
+
+	/// AggregateFunction's states should be inserted into column using specific way
+	auto res_col_aggregate_function = typeid_cast<ColumnAggregateFunction *>(&res_col);
+
+	if (!res_col_aggregate_function && agg_func.isState())
+		throw Exception("State function " + agg_func.getName() + " inserts results into non-state column "
+						+ block.safeGetByPosition(result).type->getName(), ErrorCodes::ILLEGAL_COLUMN);
 
 	ColumnArray::Offset_t current_offset = 0;
 	for (size_t i = 0; i < rows; ++i)
@@ -2789,7 +2789,10 @@ void FunctionArrayReduce::executeImpl(Block & block, const ColumnNumbers & argum
 			for (size_t j = current_offset; j < next_offset; ++j)
 				agg_func.add(place, aggregate_arguments, j, arena.get());
 
-			agg_func.insertResultInto(place, res_col);
+			if (!res_col_aggregate_function)
+				agg_func.insertResultInto(place, res_col);
+			else
+				res_col_aggregate_function->insertFrom(place);
 		}
 		catch (...)
 		{
@@ -2799,6 +2802,15 @@ void FunctionArrayReduce::executeImpl(Block & block, const ColumnNumbers & argum
 
 		agg_func.destroy(place);
 		current_offset = next_offset;
+	}
+
+	if (!is_const)
+	{
+		block.safeGetByPosition(result).column = result_holder;
+	}
+	else
+	{
+		block.safeGetByPosition(result).column = block.safeGetByPosition(result).type->createConstColumn(rows, res_col[0]);
 	}
 }
 

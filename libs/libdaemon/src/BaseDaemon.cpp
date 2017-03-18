@@ -55,7 +55,7 @@
 #include <DB/IO/ReadHelpers.h>
 #include <DB/IO/WriteHelpers.h>
 
-#include <common/ClickHouseRevision.h>
+#include <DB/Common/ClickHouseRevision.h>
 #include <daemon/OwnPatternFormatter.h>
 
 using Poco::Logger;
@@ -428,7 +428,7 @@ static void terminate_handler()
 	char buf[buf_size];
 	DB::WriteBufferFromFileDescriptor out(signal_pipe.write_fd, buf_size, buf);
 
-	DB::writeBinary(SignalListener::StdTerminate, out);
+	DB::writeBinary(static_cast<int>(SignalListener::StdTerminate), out);
 	DB::writeBinary(Poco::ThreadNumber::get(), out);
 	DB::writeBinary(log_message, out);
 	out.next();
@@ -465,7 +465,7 @@ static bool tryCreateDirectories(Poco::Logger * logger, const std::string & path
 	}
 	catch (...)
 	{
-		DB::tryLogCurrentException(logger, std::string(__PRETTY_FUNCTION__) + ": when creating " + path);
+		LOG_WARNING(logger, __PRETTY_FUNCTION__ << ": when creating " << path << ", " << DB::getCurrentExceptionMessage(true));
 	}
 	return false;
 }
