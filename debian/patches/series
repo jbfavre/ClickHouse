@@ -1,3 +1,4 @@
+fix_version.patch
 use_system_libs.patch
 fix_tests.patch
 fix_gitignore.patch

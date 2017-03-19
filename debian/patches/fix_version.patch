@@ -1,0 +1,11 @@
+--- a/dbms/cmake/version.cmake
++++ b/dbms/cmake/version.cmake
+@@ -1,6 +1,6 @@
+ #This strings autochanged from release_lib.sh :
+-set(VERSION_DESCRIBE v1.1.54187-testing)
+-set(VERSION_REVISION 54187)
++set(VERSION_DESCRIBE v1.1.54188-table)
++set(VERSION_REVISION 54188)
+ #===end of autochange
+ 
+ set (VERSION_MAJOR 1)
