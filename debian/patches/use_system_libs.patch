@@ -1,101 +1,3 @@
---- a/contrib/CMakeLists.txt
-+++ b/contrib/CMakeLists.txt
-@@ -8,11 +8,7 @@ if (USE_INTERNAL_POCO_LIBRARY)
- 	add_subdirectory (libpoco)
- endif ()
- 
--add_subdirectory (liblz4)
--add_subdirectory (libzstd)
- add_subdirectory (libre2)
--add_subdirectory (libdouble-conversion)
--add_subdirectory (libzookeeper)
- add_subdirectory (libcityhash)
- add_subdirectory (libfarmhash)
- add_subdirectory (libmetrohash)
-@@ -22,10 +18,6 @@ endif ()
- 
- add_subdirectory (libcctz)
- 
--if (ENABLE_LIBTCMALLOC AND USE_INTERNAL_GPERFTOOLS_LIBRARY)
--	add_subdirectory (libtcmalloc)
--endif ()
--
- if (NOT AARCH64)
- 	add_subdirectory (libcpuid)
- endif ()
---- a/cmake/dbms_include.cmake
-+++ b/cmake/dbms_include.cmake
-@@ -9,6 +9,4 @@ include_directories (${ClickHouse_BINARY
- include_directories (${ClickHouse_SOURCE_DIR}/libs/libpocoext/include)
- include_directories (${ClickHouse_SOURCE_DIR}/libs/libzkutil/include)
- include_directories (${ClickHouse_SOURCE_DIR}/libs/libmysqlxx/include)
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzookeeper/include)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libcityhash/include)
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libdouble-conversion)
---- a/dbms/CMakeLists.txt
-+++ b/dbms/CMakeLists.txt
-@@ -1,12 +1,9 @@
- include(${ClickHouse_SOURCE_DIR}/cmake/dbms_include.cmake)
- 
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/liblz4/include/)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libdivide)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libcpuid/include/)
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzstd/include/)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libfarmhash)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libmetrohash/src)
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libsparsehash)
- include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libre2/)
- include_directories (BEFORE ${ClickHouse_BINARY_DIR}/contrib/libre2/)
- include_directories (${ClickHouse_SOURCE_DIR}/libs/libdaemon/include/)
-@@ -138,9 +135,9 @@ target_link_libraries(dbms
- 	zkutil
- 	mysqlxx
- 	cityhash farmhash metrohash
--	lz4 zstd
-+	${LZ4_LIBRARY} ${ZSTD_LIBRARY}
- 	string_utils
--	double-conversion
-+	${DOUBLECONV_LIBRARY}
- 	${ZLIB_LIBRARIES}
- 	${LINK_LIBRARIES_ONLY_ON_X86_64}
- 	re2 re2_st
---- /dev/null
-+++ b/cmake/find_double-conversion.cmake
-@@ -0,0 +1,5 @@
-+find_path(DOUBLECONV_INCLUDE_DIR double-conversion/double-conversion.h)
-+find_library(DOUBLECONV_LIBRARY double-conversion)
-+include_directories (${DOUBLECONV_INCLUDE_DIR})
-+
-+message(STATUS "Using Double-conversion: ${DOUBLECONV_INCLUDE_DIR} : ${DOUBLECONV_LIBRARY}")
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -73,12 +73,12 @@ option (USE_INTERNAL_POCO_LIBRARY "Set t
- 
- if (CMAKE_SYSTEM MATCHES "FreeBSD")
- 	set(NOT_FREEBSD 0)
-+	option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_FREEBSD})
- else ()
- 	set(NOT_FREEBSD 1)
-+	option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_UNBUNDLED})
- endif ()
- 
--option (USE_INTERNAL_GPERFTOOLS_LIBRARY "Set to FALSE to use system gperftools (tcmalloc) library instead of bundled" ${NOT_FREEBSD})
--
- option (USE_INTERNAL_ZLIB_LIBRARY "Set to FALSE to use system zlib library instead of bundled" ${NOT_UNBUNDLED})
- 
- option (ENABLE_LIBTCMALLOC "Set to TRUE to enable libtcmalloc." ON)
-@@ -186,6 +186,11 @@ endif ()
- include (cmake/find_openssl.cmake)
- include (cmake/find_icu4c.cmake)
- include (cmake/find_boost.cmake)
-+include (cmake/find_double-conversion.cmake)
-+include (cmake/find_lz4.cmake)
-+include (cmake/find_libsparsehash.cmake)
-+include (cmake/find_zookeeper.cmake)
-+include (cmake/find_zstd.cmake)
- include (cmake/find_zlib.cmake)
- include (cmake/find_poco.cmake)
- include (cmake/find_libtool.cmake)
 --- /dev/null
 +++ b/cmake/find_libsparsehash.cmake
 @@ -0,0 +1,4 @@
@@ -103,82 +5,6 @@
 +include_directories (${SPARSEHASH_INCLUDE_DIR})
 +
 +message(STATUS "Using sparsehash: ${SPARSEHASH_INCLUDE_DIR}")
---- /dev/null
-+++ b/cmake/find_lz4.cmake
-@@ -0,0 +1,5 @@
-+find_path(LZ4_INCLUDE_DIR lz4.h)
-+find_library(LZ4_LIBRARY lz4)
-+include_directories (${LZ4_INCLUDE_DIR})
-+
-+message(STATUS "Using lz4: ${LZ4_INCLUDE_DIR} : ${LZ4_LIBRARY}")
---- /dev/null
-+++ b/cmake/find_zookeeper.cmake
-@@ -0,0 +1,5 @@
-+find_path(ZOOKEEPER_INCLUDE_DIR zookeeper/zookeeper.h)
-+find_library(ZOOKEEPER_LIBRARY zookeeper_mt)
-+include_directories (${ZOOKEEPER_INCLUDE_DIR})
-+
-+message(STATUS "Using zookeeper: ${ZOOKEEPER_INCLUDE_DIR} : ${ZOOKEEPER_LIBRARY}")
---- /dev/null
-+++ b/cmake/find_zstd.cmake
-@@ -0,0 +1,5 @@
-+find_path(ZSTD_INCLUDE_DIR zstd.h)
-+find_library(ZSTD_LIBRARY zstd)
-+include_directories (${ZSTD_INCLUDE_DIR})
-+
-+message(STATUS "Using zstd: ${ZSTD_INCLUDE_DIR} : ${ZSTD_LIBRARY}")
---- a/utils/compressor/CMakeLists.txt
-+++ b/utils/compressor/CMakeLists.txt
-@@ -1,10 +1,8 @@
- 
--include_directories (BEFORE ${ClickHouse_SOURCE_DIR}/contrib/libzstd/include)
--
- add_executable (clickhouse-compressor main.cpp)
- target_link_libraries (clickhouse-compressor dbms ${Boost_PROGRAM_OPTIONS_LIBRARY})
- 
- install (TARGETS clickhouse-compressor RUNTIME DESTINATION bin COMPONENT clickhouse-compressor)
- 
- add_executable (zstd_test zstd_test.cpp)
--target_link_libraries (zstd_test zstd)
-+target_link_libraries (zstd_test ${ZSTD_LIBRARY})
---- a/libs/libzkutil/CMakeLists.txt
-+++ b/libs/libzkutil/CMakeLists.txt
-@@ -23,6 +23,6 @@ add_library(zkutil
- 
- find_package (Threads)
- 
--target_link_libraries(zkutil zookeeper ${Poco_Foundation_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} string_utils)
-+target_link_libraries(zkutil ${ZOOKEEPER_LIBRARY} ${Poco_Foundation_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} string_utils)
- 
- add_subdirectory (src)
---- a/dbms/src/IO/CompressedReadBufferBase.cpp
-+++ b/dbms/src/IO/CompressedReadBufferBase.cpp
-@@ -8,8 +8,8 @@
- 	#include <quicklz/quicklz_level1.h>
- #endif
- 
--#include <lz4/lz4.h>
--#include <zstd/zstd.h>
-+#include <lz4.h>
-+#include <zstd.h>
- 
- #include <DB/Common/PODArray.h>
- #include <DB/Common/ProfileEvents.h>
---- a/dbms/src/IO/CompressedWriteBuffer.cpp
-+++ b/dbms/src/IO/CompressedWriteBuffer.cpp
-@@ -5,9 +5,9 @@
- 	#include <quicklz/quicklz_level1.h>
- #endif
- 
--#include <lz4/lz4.h>
--#include <lz4/lz4hc.h>
--#include <zstd/zstd.h>
-+#include <lz4.h>
-+#include <lz4hc.h>
-+#include <zstd.h>
- 
- #include <DB/Common/unaligned.h>
- 
 --- a/copy_headers.sh
 +++ b/copy_headers.sh
 @@ -27,19 +27,10 @@ for src_file in $(clang -M -xc++ -std=gn
@@ -202,3 +28,24 @@
 -do
 -	cp "$i" "$DST/$i";
 -done
+--- a/dbms/src/Interpreters/CMakeLists.txt
++++ b/dbms/src/Interpreters/CMakeLists.txt
+@@ -6,7 +6,7 @@ else ()
+ endif ()
+ 
+ if (INTERNAL_COMPILER_SAME)
+-	set (INTERNAL_COMPILER_EXECUTABLE "${CMAKE_CXX_COMPILER}" CACHE STRING "")
++	set (INTERNAL_COMPILER_EXECUTABLE "/usr/bin/clang" CACHE STRING "")
+ else ()
+ 	set (INTERNAL_COMPILER_EXECUTABLE "${PATH_SHARE}/clickhouse/bin/clang" CACHE STRING "")
+ endif ()
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
++++ /dev/null
+@@ -1,2 +0,0 @@
+-1	Hello
+-2	Hello
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
++++ /dev/null
+@@ -1,2 +0,0 @@
+-SET compile = 1, min_count_to_compile = 0, max_threads = 1;
+-SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
