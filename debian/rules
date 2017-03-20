@@ -11,6 +11,8 @@ CFLAGS:=$(shell dpkg-buildflags --get CFLAGS) $(CPPFLAGS)
 CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS) $(CPPFLAGS)
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
 include /usr/share/dpkg/pkg-info.mk
 export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
 
@@ -79,7 +81,7 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/etc/security/limits.d
 	cp tools/etc/security/limits.d/clickhouse.conf debian/tmp/etc/security/limits.d/
 	# В случае сборки clickhouse-server, добавим в пакет бинарник clang-а, ld и заголовочные файлы - для динамической компиляции.
-	mkdir -p debian/tmp/usr/share/clickhouse/bin debian/tmp/usr/share/clickhouse/headers;
+	mkdir -p debian/tmp/usr/share/clickhouse/headers;
 	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
 	dh_install --sourcedir=debian/tmp
 	# Remove upstream init script

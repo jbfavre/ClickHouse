@@ -67,11 +67,16 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Clickhouse database library
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
+ .
+ This package includes a shared library used by clickhouse.
 
-Package: libclickhouse1-dev
+Package: libclickhouse-dev
 Section: libdevel
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Clickhouse database library
+Depends: libclickhouse1 (= ${binary:Version}), ${shlibs:Depends},
+         ${misc:Depends}
+Description: Clickhouse database library development files
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
+ .
+ This package includes the library development and header files.
