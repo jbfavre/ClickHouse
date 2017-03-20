@@ -1,4 +1,4 @@
-clickhouse (1.1.54188-1) unstable; urgency=medium
+clickhouse (1.1.54188-2) unstable; urgency=medium
 
   * Initial release (Closes: #851574)
 

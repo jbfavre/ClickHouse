@@ -17,7 +17,6 @@ Vcs-Git: https://github.com/jbfavre/clickhouse.git
 Vcs-Browser: https://github.com/jbfavre/clickhouse/
 
 Package: clickhouse-common
-Section: database
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
          libstdc++-6-dev, libpoco-dev, linux-libc-dev, libboost1.62-dev,
@@ -29,7 +28,6 @@ Description: Common files for clickhouse
  This package provides common files for both clickhouse server and client
 
 Package: clickhouse-server
-Section: database
 Architecture: any
 Pre-Depends: clickhouse-common (= ${binary:Version})
 Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
@@ -41,7 +39,6 @@ Description: Base package for clickhouse
  This package provides clickhouse common configuration files
 
 Package: clickhouse-client
-Section: database
 Architecture: any
 Pre-Depends: clickhouse-common (= ${binary:Version})
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -52,7 +49,6 @@ Description: Client binary for clickhouse
  This package provides clickhouse client binary
 
 Package: clickhouse-utils
-Section: database
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Various utilities for clickhouse analytics db
@@ -64,10 +60,18 @@ Description: Various utilities for clickhouse analytics db
    - benchmark utility
    - compressor
 
-Package: clickhouse-libs
+Package: libclickhouse1
 Section: libs
 Architecture: any
-Depends: clickhouse-common, ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Clickhouse database library
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+
+Package: libclickhouse1-dev
+Section: libdevel
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Clickhouse database library
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
