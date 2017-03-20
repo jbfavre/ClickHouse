@@ -23,7 +23,7 @@ endif
 BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
 
 %:
-	dh $@ --parallel --max-parallel=4 --buildsystem=cmake
+	dh $@ --parallel --max-parallel=4 --buildsystem=cmake --with=systemd
 
 override_dh_auto_configure:
 

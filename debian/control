@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 9), cmake, gcc-6, g++-6, libicu-dev,
                libboost-thread-dev, libboost-program-options-dev,
                libboost-system-dev, libboost-regex-dev, libboost-filesystem-dev,
                libpoco-dev, liblz4-dev, libsparsehash-dev, libzookeeper-mt-dev,
-               libzstd-dev, libdouble-conversion-dev,
+               libzstd-dev, libdouble-conversion-dev, dh-systemd (>=1.5),
                clang, python, python-lxml, python-termcolor, curl, perl
 Standards-Version: 3.9.8
 Homepage: https://clickhouse.yandex/
