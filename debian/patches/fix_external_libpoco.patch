@@ -1,3 +1,9 @@
+Description: Fix test when using system libpoco
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-03-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/queries/0_stateless/00416_progress_in_http_headers.reference
 +++ b/dbms/tests/queries/0_stateless/00416_progress_in_http_headers.reference
 @@ -1,14 +1,3 @@

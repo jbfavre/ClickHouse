@@ -1,3 +1,9 @@
+Description: Remove failing tests
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-03-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/clickhouse-test
 +++ b/dbms/tests/clickhouse-test
 @@ -58,7 +58,7 @@ def main(args):

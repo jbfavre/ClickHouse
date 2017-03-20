@@ -1,3 +1,9 @@
+Description: Fix version for 1.1.54188 stable
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-03-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/cmake/version.cmake
 +++ b/dbms/cmake/version.cmake
 @@ -1,6 +1,6 @@
