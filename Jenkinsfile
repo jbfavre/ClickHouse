@@ -1,6 +1,8 @@
 def GIT_HOSTNAME='ci.jbfav.re'
 def GIT_REPO_NAME=env.JOB_NAME
 def DEB_BUILD_OPTIONS=(skip_tests == "true" ? 'nocheck' : '' )
+def REPOSITORY_EXTRA=""
+def REPOSITORY_EXTRA_KEYS=""
 def ADT=(skip_tests == "true" ? 'skip' : 'internal')
 
 // Checkout package git repository
