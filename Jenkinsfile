@@ -1,9 +1,7 @@
 def GIT_HOSTNAME='ci.jbfav.re'
 def GIT_REPO_NAME=env.JOB_NAME
-def REPOSITORY_EXTRA=""
-def REPOSITORY_EXTRA_KEYS=""
 def DEB_BUILD_OPTIONS=(skip_tests == "true" ? 'nocheck' : '' )
-def ADT='skip'
+def ADT=(skip_tests == "true" ? 'skip' : 'internal')
 
 // Checkout package git repository
 // Must be done on master (my setup)
@@ -65,7 +63,7 @@ stage name: 'Build binary packages'
 
 //    parallel architecture_i386: {
 //
-//        node('slave,i386'){
+//        node('i386'){
 //            def architecture='i386'
 //            deleteDir()
 //            unstash 'source'
@@ -91,7 +89,7 @@ stage name: 'Build binary packages'
 //
 //    }, architecture_amd64: {
 
-        node('slave,amd64'){
+        node('amd64'){
             def architecture='amd64'
             deleteDir()
             unstash 'source'
@@ -177,8 +175,11 @@ stage('Add packages to repository')
         deleteDir()
 
         // Unstash binaries artifacts
-//        unstash 'binaries_i386'
-        unstash 'binaries_amd64'
+        unstash 'source'
+        dir('binaries') {
+//            unstash 'binaries_i386'
+            unstash 'binaries_amd64'
+        }
 
         // Add packages to repo
         withEnv([
@@ -188,7 +189,6 @@ stage('Add packages to repository')
             "distribution=${distribution}",
             "PROVIDE_ONLY=true",
             "REPO_CODENAME=${distribution}",
-            "BASE_PATH=.",
             "RELEASE_DISTRIBUTION=${distribution}"
         ]) {
             sh '/usr/bin/build-and-provide-package'
@@ -208,5 +208,5 @@ stage('Archive artifacts')
         unstash 'binaries_amd64'
         unstash 'piuparts'
         unstash 'lintian'
-        archive '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.buildinfo,*.changes,lintian.txt,piuparts*'
+        archive '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.changes,lintian.txt,piuparts*'
     }
