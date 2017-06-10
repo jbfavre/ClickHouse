@@ -1,0 +1,52 @@
+Description: Fix headers copy for dev package
+ Default clickhouse installation provides headers files for many embbeded libraries.
+ When using system ones, there's no need to provides theses headers.
+ Instead, we have to make package depends on libraries dev package
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-03-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/copy_headers.sh
++++ b/copy_headers.sh
+@@ -26,18 +26,9 @@ for src_file in $(clang -M -xc++ -std=gn
+     $(cat "$SOURCE_PATH/build/include_directories.txt") \
+     "$SOURCE_PATH/dbms/src/Interpreters/SpecializedAggregator.h" |
+     tr -d '\\' |
+-    sed -r -e 's/^\w+\.o://');
++    sed -r -e 's/^\w+\.o://'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
+ do
+     dst_file=$src_file;
+     mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
+     cp "$src_file" "$DST/$dst_file";
+ done
+-
+-
+-# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
+-#  заголовочные файлы, будет использоваться опция -march=native.
+-
+-for i in $(ls -1 $(clang -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-do
+-    cp "$i" "$DST/$i";
+-done
+--- a/dbms/src/Interpreters/CMakeLists.txt
++++ b/dbms/src/Interpreters/CMakeLists.txt
+@@ -6,7 +6,7 @@ else ()
+ endif ()
+ 
+ if (INTERNAL_COMPILER_SAME)
+-    set (INTERNAL_COMPILER_EXECUTABLE "${CMAKE_CXX_COMPILER}" CACHE STRING "")
++    set (INTERNAL_COMPILER_EXECUTABLE "/usr/bin/clang" CACHE STRING "")
+ else ()
+     set (INTERNAL_COMPILER_EXECUTABLE "${PATH_SHARE}/clickhouse/bin/clang" CACHE STRING "")
+ endif ()
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
++++ /dev/null
+@@ -1,2 +0,0 @@
+-1	Hello
+-2	Hello
+--- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
++++ /dev/null
+@@ -1,2 +0,0 @@
+-SET compile = 1, min_count_to_compile = 0, max_threads = 1;
+-SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;

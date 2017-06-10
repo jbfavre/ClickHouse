@@ -1,0 +1,19 @@
+Description: Fix tests
+ Default test suite assumes that package is already installed and look for config file in /etc
+ Use relative path to allow tests to be ran during package build
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-03-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/dbms/tests/clickhouse-test
++++ b/dbms/tests/clickhouse-test
+@@ -58,7 +58,7 @@ def main(args):
+ 
+     if args.zookeeper is None:
+         try:
+-            check_call(['grep', '-q', '<zookeeper', '/etc/clickhouse-server/config-preprocessed.xml'], )
++            check_call(['grep', '-q', '<zookeeper', '../../debian/clickhouse-server-config-tests-preprocessed.xml'], )
+             args.zookeeper = True
+         except CalledProcessError:
+             args.zookeeper = False

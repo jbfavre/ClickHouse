@@ -1,0 +1,14 @@
+[Unit]
+Description=Clickhouse database
+
+[Service]
+User=clickhouse
+ExecStart=/usr/bin/clickhouse-server --daemon --pid-file="/var/run/clickhouse/clickhouse-server.pi" --config-file="/etc/clickhouse-server/config.xml"
+ExecStop=kill -TERM $MAINPID
+StandardOutput=journal
+StandardError=journal
+RestartSec=1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

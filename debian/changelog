@@ -1,0 +1,5 @@
+clickhouse (1.1.54236-1) unstable; urgency=medium
+
+  * Initial release (Closes: #851574)
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Sat, 10 Jun 2017 16:35:59 +0200

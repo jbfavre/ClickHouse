@@ -1,0 +1,36 @@
+#!/bin/sh
+
+set -e
+
+DATADIR=/var/lib/clickhouse
+LOGDIR=/var/log/clickhouse
+
+CONFDIR=/etc/clickhouse-server
+
+if [ "${1}" = "purge" ]
+then
+
+  # Remove config files permissions overrides
+  if dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --remove ${CONFDIR}
+  fi
+  if dpkg-statoverride --list ${DATADIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --remove ${DATADIR}
+  fi
+  if dpkg-statoverride --list ${LOGDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --remove ${LOGDIR}
+  fi
+  echo "Removing data dir ..."
+  rm -rf ${DATADIR}
+  echo "Removing log dir ..."
+  rm -rf ${LOGDIR}
+  echo "Removing preprocessed config files ..."
+  rm -f ${CONFDIR}/*-preprocessed.xml
+
+fi
+
+
+#DEBHELPER#

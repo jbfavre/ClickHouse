@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+DATADIR=/var/lib/clickhouse
+LOGDIR=/var/log/clickhouse
+USER=clickhouse
+GROUP=${USER}
+CONFDIR=/etc/clickhouse-server
+
+if [ "$1" = configure ]; then
+
+  # Clean old dynamic compilation results (legacy from upstream. Still relevant ?)
+  if [ -d "${DATADIR}/build" ]; then
+    rm -f ${DATADIR}/build/*.cpp ${DATADIR}/build/*.so ||:
+  fi
+
+  echo "Fixing permissions ..."
+  if ! dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 750 ${CONFDIR}
+  fi
+  if ! dpkg-statoverride --list ${DATADIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 700 ${DATADIR}
+  fi
+  if ! dpkg-statoverride --list ${LOGDIR} >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 755 ${LOGDIR}
+  fi
+
+fi
+
+#DEBHELPER#

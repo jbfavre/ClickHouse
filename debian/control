@@ -1,0 +1,97 @@
+Source: clickhouse
+Section: database
+Priority: optional
+Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
+Build-Depends: debhelper (>= 9), dh-systemd (>=1.5),
+               cmake, clang,
+               python, curl, perl,
+               default-libmysqlclient-dev | libmysqlclient-dev,
+               libboost-dev,
+               libboost-filesystem-dev,
+               libboost-program-options-dev,
+               libboost-regex-dev,
+               libboost-system-dev,
+               libboost-thread-dev,
+               libdouble-conversion-dev,
+               libglib2.0-dev,
+               libgoogle-perftools-dev,
+               libicu-dev,
+               libltdl-dev,
+               liblz4-dev,
+               libpoco-dev,
+               libreadline-dev,
+               libsparsehash-dev,
+               libssl-dev,
+               libzookeeper-mt-dev,
+               libzstd-dev,
+               unixodbc-dev, 
+               python-lxml, python-termcolor
+Standards-Version: 3.9.8
+Homepage: https://clickhouse.yandex/
+Vcs-Git: https://github.com/jbfavre/clickhouse.git
+Vcs-Browser: https://github.com/jbfavre/clickhouse/
+
+Package: clickhouse-common
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
+         libstdc++-6-dev, libpoco-dev, linux-libc-dev, libboost1.62-dev,
+         libc6-dev, libdouble-conversion-dev
+Description: Common files for clickhouse
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package provides common files for both clickhouse server and client
+
+Package: clickhouse-server
+Architecture: any
+Pre-Depends: clickhouse-common (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
+         clang
+Description: Base package for clickhouse
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package provides clickhouse common configuration files
+
+Package: clickhouse-client
+Architecture: any
+Pre-Depends: clickhouse-common (= ${binary:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Client binary for clickhouse
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package provides clickhouse client binary
+
+Package: clickhouse-utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Various utilities for clickhouse analytics db
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package provides:
+ .
+   - benchmark utility
+   - compressor
+
+Package: libclickhouse1
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Clickhouse database library
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package includes a shared library used by clickhouse.
+
+Package: libclickhouse-dev
+Section: libdevel
+Architecture: any
+Depends: libclickhouse1 (= ${binary:Version}), ${shlibs:Depends},
+         ${misc:Depends}
+Description: Clickhouse database library development files
+ Yandex ClickHouse is a column-oriented database management system
+ that allows generating analytical data reports in real time.
+ .
+ This package includes the library development and header files.
