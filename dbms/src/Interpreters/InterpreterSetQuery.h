@@ -1,28 +1,33 @@
 #pragma once
 
-#include <Interpreters/Context.h>
 #include <Interpreters/IInterpreter.h>
 
 
 namespace DB
 {
 
+class Context;
+class IAST;
 class ASTSetQuery;
+using ASTPtr = std::shared_ptr<IAST>;
 
-/** Установить один или несколько параметров, для сессии или глобально... или для текущего запроса.
+
+/** Change one or several settings, for session or globally, or just for current context.
   */
 class InterpreterSetQuery : public IInterpreter
 {
 public:
-    InterpreterSetQuery(ASTPtr query_ptr_, Context & context_)
+    InterpreterSetQuery(const ASTPtr & query_ptr_, Context & context_)
         : query_ptr(query_ptr_), context(context_) {}
 
-    /** Обычный запрос SET. Задать настройку на сессию или глобальную (если указано GLOBAL).
+    /** Usual SET query. Set setting for session or globally (if GLOBAL was specified).
       */
     BlockIO execute() override;
 
-    /** Задать настроку для текущего контекста (контекста запроса).
-      * Используется для интерпретации секции SETTINGS в запросе SELECT.
+    void checkAccess(const ASTSetQuery & ast);
+
+    /** Set setting for current context (query context).
+      * It is used for interpretation of SETTINGS clause in SELECT query.
       */
     void executeForCurrentContext();
 
@@ -30,7 +35,7 @@ private:
     ASTPtr query_ptr;
     Context & context;
 
-    void executeImpl(ASTSetQuery & ast, Context & target);
+    void executeImpl(const ASTSetQuery & ast, Context & target);
 };
 
 

@@ -26,7 +26,7 @@ public:
         Int64 left;
         Int64 right;
         UInt32 level;
-        std::string name;
+        String name; /// pure name without prefixes
         DayNum_t month;
 
         bool operator<(const Part & rhs) const
@@ -38,8 +38,6 @@ public:
         bool contains(const Part & rhs) const
         {
             return month == rhs.month        /// Parts for different months are not merged
-                && left_date <= rhs.left_date
-                && right_date >= rhs.right_date
                 && left <= rhs.left
                 && right >= rhs.right
                 && level >= rhs.level;

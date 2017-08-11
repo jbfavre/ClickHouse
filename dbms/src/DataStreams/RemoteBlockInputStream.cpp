@@ -17,8 +17,8 @@ namespace ErrorCodes
 
 
 RemoteBlockInputStream::RemoteBlockInputStream(Connection & connection_, const String & query_,
-    const Settings * settings_, ThrottlerPtr throttler_, const Tables & external_tables_,
-    QueryProcessingStage::Enum stage_, const Context & context_)
+    const Settings * settings_, const Context & context_, ThrottlerPtr throttler_,
+    const Tables & external_tables_, QueryProcessingStage::Enum stage_)
     : connection(&connection_), query(query_), throttler(throttler_), external_tables(external_tables_),
     stage(stage_), context(context_)
 {
@@ -26,8 +26,8 @@ RemoteBlockInputStream::RemoteBlockInputStream(Connection & connection_, const S
 }
 
 RemoteBlockInputStream::RemoteBlockInputStream(const ConnectionPoolWithFailoverPtr & pool_, const String & query_,
-    const Settings * settings_, ThrottlerPtr throttler_, const Tables & external_tables_,
-    QueryProcessingStage::Enum stage_, const Context & context_)
+    const Settings * settings_, const Context & context_, ThrottlerPtr throttler_,
+    const Tables & external_tables_, QueryProcessingStage::Enum stage_)
     : pool(pool_), query(query_), throttler(throttler_), external_tables(external_tables_),
     stage(stage_), context(context_)
 {
@@ -35,8 +35,8 @@ RemoteBlockInputStream::RemoteBlockInputStream(const ConnectionPoolWithFailoverP
 }
 
 RemoteBlockInputStream::RemoteBlockInputStream(ConnectionPoolWithFailoverPtrs && pools_, const String & query_,
-    const Settings * settings_, ThrottlerPtr throttler_, const Tables & external_tables_,
-    QueryProcessingStage::Enum stage_, const Context & context_)
+    const Settings * settings_, const Context & context_, ThrottlerPtr throttler_,
+    const Tables & external_tables_, QueryProcessingStage::Enum stage_)
     : pools(std::move(pools_)), query(query_), throttler(throttler_), external_tables(external_tables_),
     stage(stage_), context(context_)
 {
@@ -102,7 +102,7 @@ void RemoteBlockInputStream::sendExternalTables()
             {
                 StoragePtr cur = table.second;
                 QueryProcessingStage::Enum stage = QueryProcessingStage::Complete;
-                DB::BlockInputStreams input = cur->read(cur->getColumnNamesList(), ASTPtr(), context, settings,
+                DB::BlockInputStreams input = cur->read(cur->getColumnNamesList(), ASTPtr(), context,
                     stage, DEFAULT_BLOCK_SIZE, 1);
                 if (input.size() == 0)
                     res.push_back(std::make_pair(std::make_shared<OneBlockInputStream>(cur->getSampleBlock()), table.first));
@@ -122,7 +122,7 @@ Block RemoteBlockInputStream::readImpl()
     {
         sendQuery();
 
-        if (settings.skip_unavailable_shards && (0 == multiplexed_connections->size()))
+        if (context.getSettingsRef().skip_unavailable_shards && (0 == multiplexed_connections->size()))
             return {};
     }
 
@@ -224,7 +224,7 @@ void RemoteBlockInputStream::readSuffixImpl()
 
 void RemoteBlockInputStream::createMultiplexedConnections()
 {
-    Settings * multiplexed_connections_settings = send_settings ? &settings : nullptr;
+    Settings * multiplexed_connections_settings = send_settings ? &context.getSettingsRef() : nullptr;
     const QualifiedTableName * main_table_ptr = main_table ? &main_table.value() : nullptr;
     if (connection != nullptr)
         multiplexed_connections = std::make_unique<MultiplexedConnections>(
@@ -241,12 +241,12 @@ void RemoteBlockInputStream::createMultiplexedConnections()
         throw Exception("Internal error", ErrorCodes::LOGICAL_ERROR);
 }
 
-void RemoteBlockInputStream::init(const Settings * settings_)
+void RemoteBlockInputStream::init(const Settings * settings)
 {
-    if (settings_)
+    if (settings)
     {
         send_settings = true;
-        settings = *settings_;
+        context.setSettings(*settings);
     }
     else
         send_settings = false;
@@ -256,7 +256,7 @@ void RemoteBlockInputStream::sendQuery()
 {
     createMultiplexedConnections();
 
-    if (settings.skip_unavailable_shards && 0 == multiplexed_connections->size())
+    if (context.getSettingsRef().skip_unavailable_shards && 0 == multiplexed_connections->size())
         return;
 
     established = true;

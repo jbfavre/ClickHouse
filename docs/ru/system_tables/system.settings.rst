@@ -5,7 +5,8 @@ system.settings
 То есть, используемых для выполнения запроса, с помощью которого вы читаете из таблицы system.settings.
 
 Столбцы:
-::
+
+.. code-block:: text
 
   name String   - имя настройки
   value String  - значение настройки
@@ -18,7 +19,9 @@ system.settings
   SELECT *
   FROM system.settings
   WHERE changed
-  
+
+.. code-block:: text
+
   ┌─name───────────────────┬─value───────┬─changed─┐
   │ max_threads            │ 8           │       1 │
   │ use_uncompressed_cache │ 0           │       1 │

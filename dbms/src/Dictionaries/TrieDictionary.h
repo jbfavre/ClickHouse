@@ -3,16 +3,18 @@
 #include <Dictionaries/IDictionary.h>
 #include <Dictionaries/IDictionarySource.h>
 #include <Dictionaries/DictionaryStructure.h>
-#include <Core/StringRef.h>
+#include <common/StringRef.h>
 #include <Common/HashTable/HashMap.h>
 #include <Columns/ColumnString.h>
 #include <Common/Arena.h>
-#include <ext/range.hpp>
-#include <btrie.h>
+#include <ext/range.h>
 #include <atomic>
 #include <memory>
 #include <tuple>
+#include <common/logger_useful.h>
 
+struct btrie_s;
+typedef struct btrie_s btrie_t;
 
 namespace DB
 {
@@ -68,7 +70,7 @@ public:
 
 #define DECLARE(TYPE)\
     void get##TYPE(\
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,\
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,\
         PaddedPODArray<TYPE> & out) const;
     DECLARE(UInt8)
     DECLARE(UInt16)
@@ -83,12 +85,12 @@ public:
 #undef DECLARE
 
     void getString(
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,
         ColumnString * out) const;
 
 #define DECLARE(TYPE)\
     void get##TYPE(\
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,\
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,\
         const PaddedPODArray<TYPE> & def, PaddedPODArray<TYPE> & out) const;
     DECLARE(UInt8)
     DECLARE(UInt16)
@@ -103,12 +105,12 @@ public:
 #undef DECLARE
 
     void getString(
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,
         const ColumnString * const def, ColumnString * const out) const;
 
 #define DECLARE(TYPE)\
     void get##TYPE(\
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,\
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,\
         const TYPE def, PaddedPODArray<TYPE> & out) const;
     DECLARE(UInt8)
     DECLARE(UInt16)
@@ -123,10 +125,12 @@ public:
 #undef DECLARE
 
     void getString(
-        const std::string & attribute_name, const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types,
+        const std::string & attribute_name, const Columns & key_columns, const DataTypes & key_types,
         const String & def, ColumnString * const out) const;
 
-    void has(const ConstColumnPlainPtrs & key_columns, const DataTypes & key_types, PaddedPODArray<UInt8> & out) const;
+    void has(const Columns & key_columns, const DataTypes & key_types, PaddedPODArray<UInt8> & out) const;
+
+    BlockInputStreamPtr getBlockInputStream(const Names & column_names, size_t max_block_size) const override;
 
 private:
     template <typename Value> using ContainerType = std::vector<Value>;
@@ -168,14 +172,14 @@ private:
     template <typename OutputType, typename ValueSetter, typename DefaultGetter>
     void getItemsNumber(
         const Attribute & attribute,
-        const ConstColumnPlainPtrs & key_columns,
+        const Columns & key_columns,
         ValueSetter && set_value,
         DefaultGetter && get_default) const;
 
     template <typename AttributeType, typename OutputType, typename ValueSetter, typename DefaultGetter>
     void getItemsImpl(
         const Attribute & attribute,
-        const ConstColumnPlainPtrs & key_columns,
+        const Columns & key_columns,
         ValueSetter && set_value,
         DefaultGetter && get_default) const;
 
@@ -188,7 +192,12 @@ private:
     const Attribute & getAttribute(const std::string & attribute_name) const;
 
     template <typename T>
-    void has(const Attribute & attribute, const ConstColumnPlainPtrs & key_columns, PaddedPODArray<UInt8> & out) const;
+    void has(const Attribute & attribute, const Columns & key_columns, PaddedPODArray<UInt8> & out) const;
+
+    template <typename Getter, typename KeyType>
+    void trieTraverse(const btrie_t * trie, Getter && getter) const;
+
+    Columns getKeyColumns() const;
 
     const std::string name;
     const DictionaryStructure dict_struct;
@@ -210,6 +219,8 @@ private:
     std::chrono::time_point<std::chrono::system_clock> creation_time;
 
     std::exception_ptr creation_exception;
+
+    Logger * logger;
 };
 
 
