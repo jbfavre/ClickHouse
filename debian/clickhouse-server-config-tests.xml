@@ -81,7 +81,20 @@
 
 		 See https://clickhouse.yandex/reference_en.html#Data%20replication
 	  -->
-	<zookeeper incl="zookeeper-servers" optional="false" />
+	<zookeeper>
+      <node index="1">
+          <host>127.0.0.1</host>
+          <port>2181</port>
+      </node>
+      <node index="2">
+          <host>127.0.0.2</host>
+          <port>2181</port>
+      </node>
+      <node index="3">
+          <host>127.0.0.3</host>
+          <port>2181</port>
+      </node>
+        </zookeeper>
 
 	<!-- Substitutions for parameters of replicated tables.
 	      Optional. If you don't use replicated tables, you could omit that.

@@ -1,9 +1,11 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
+include /usr/share/dpkg/pkg-info.mk
+export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
+
 # Uncomment this to turn on verbose mode.
 export DH_VERBOSE=1
-
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
@@ -12,18 +14,28 @@ CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS) $(CPPFLAGS)
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+DEB_CC:=gcc-6
+DEB_CXX:=g++-6
 
-include /usr/share/dpkg/pkg-info.mk
-export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
+DEB_BUILD_GNU_TYPE := $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+DEB_HOST_GNU_TYPE  := $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+CC := $(DEB_CC)
+CXX := $(DEB_CXX)
+else
+CC := $(DEB_HOST_GNU_TYPE)-$(DEB_CC)
+CXX := $(DEB_HOST_GNU_TYPE)-$(DEB_CXX)
+endif
 
-ifndef THREADS_COUNT
-    THREADS_COUNT=`grep -c ^processor /proc/cpuinfo`
+CMAKE_FLAGS ?= -DCMAKE_CXX_COMPILER=`which $(CXX)` -DCMAKE_C_COMPILER=`which $(CC)` -DENABLE_TESTS=0 $(CMAKE_FLAGS_ADD)
+ifndef DH_VERBOSE
+    CMAKE_FLAGS += -DCMAKE_VERBOSE_MAKEFILE=0
 endif
 
 BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
 
 %:
-	dh $@ --parallel --max-parallel=4 --buildsystem=cmake --with=systemd
+	dh $@ --parallel --buildsystem=cmake --with=systemd
 
 override_dh_auto_configure:
 
@@ -42,30 +54,12 @@ override_dh_auto_build:
 	rm -rf contrib/libzookeeper
 	rm -rf contrib/libzstd
 	dh_testdir
-	# for building Debug run: debuild -e CMAKE_BUILD_TYPE=Debug
-	# for building with shared libs run: debuild -e USE_STATIC_LIBRARIES=0
 	mkdir -p build && cd build && cmake .. -DUNBUNDLED=1 -DUSE_STATIC_LIBRARIES=0 -DINTERNAL_COMPILER_SAME=1
-	# TODO: возможно надо исправить
-	# последовательно запускаем make для каждой из целей.
-	# т.к. при параллельном запуске (make target1 target2) несколько раз одновременно создаются бинарники
-	# и возникает raise с custom_command, использующие эти бинарники
 	for target in ${BUILD_TARGETS}; \
 	do \
-		$(MAKE) -j$(THREADS_COUNT) -C build $$target; \
+		$(MAKE) -C build $$target; \
 	done
 	touch $@
-
-override_dh_auto_clean:
-	dh_testdir
-	dh_testroot
-	rm -rf build
-	rm -rf obj-x86_64-linux-gnu
-	rm -f override_dh_auto_build
-	# Delete stdout & stderr files from tests
-	rm -f dbms/tests/queries/0_stateless/*.std*
-	rm -f debian/*-preprocessed.xml
-	# Proceed legacy clean
-	dh_clean
 
 override_dh_auto_install:
 	# Can't use dh_auto_install for now
@@ -77,10 +71,9 @@ override_dh_auto_install:
 	do \
 		DESTDIR=../debian/tmp cmake -DCOMPONENT=$$target -P cmake_install.cmake; \
 	done
-	# Mnually install /etc/security/limits.d/clickhouse.conf
+	# Manually install /etc/security/limits.d/clickhouse.conf
 	mkdir -p debian/tmp/etc/security/limits.d
 	cp tools/etc/security/limits.d/clickhouse.conf debian/tmp/etc/security/limits.d/
-	# В случае сборки clickhouse-server, добавим в пакет бинарник clang-а, ld и заголовочные файлы - для динамической компиляции.
 	mkdir -p debian/tmp/usr/share/clickhouse/headers;
 	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
 	dh_install --sourcedir=debian/tmp

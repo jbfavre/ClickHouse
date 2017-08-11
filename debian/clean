@@ -1,0 +1,12 @@
+contrib/libboost/
+contrib/libpoco/
+contrib/libtcmalloc/
+contrib/libdouble-conversion/
+contrib/liblz4/
+contrib/libsparsehash/
+contrib/libzookeeper/
+contrib/libzstd/
+obj-x86_64-linux-gnu/
+override_dh_auto_build
+dbms/tests/queries/0_stateless/*.std*
+debian/*-preprocessed.xml

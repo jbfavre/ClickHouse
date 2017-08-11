@@ -3,8 +3,7 @@ Section: database
 Priority: optional
 Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
 Build-Depends: debhelper (>= 9), dh-systemd (>=1.5),
-               cmake, clang,
-               python, curl, perl,
+               cmake, clang, python, curl, perl,
                default-libmysqlclient-dev | libmysqlclient-dev,
                libboost-dev,
                libboost-filesystem-dev,
@@ -26,32 +25,31 @@ Build-Depends: debhelper (>= 9), dh-systemd (>=1.5),
                libzstd-dev,
                unixodbc-dev, 
                python-lxml, python-termcolor
-Standards-Version: 3.9.8
+Standards-Version: 4.0.0
 Homepage: https://clickhouse.yandex/
 Vcs-Git: https://github.com/jbfavre/clickhouse.git
 Vcs-Browser: https://github.com/jbfavre/clickhouse/
 
 Package: clickhouse-common
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, adduser,
          libstdc++-6-dev, libpoco-dev, linux-libc-dev, libboost1.62-dev,
          libc6-dev, libdouble-conversion-dev
 Description: Common files for clickhouse
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
- This package provides common files for both clickhouse server and client
+ This package provides common files for both clickhouse server and client.
 
 Package: clickhouse-server
 Architecture: any
 Pre-Depends: clickhouse-common (= ${binary:Version})
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.2-14), adduser,
-         clang
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, adduser, clang
 Description: Base package for clickhouse
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
- This package provides clickhouse common configuration files
+ This package provides clickhouse common configuration files.
 
 Package: clickhouse-client
 Architecture: any
@@ -61,7 +59,7 @@ Description: Client binary for clickhouse
  Yandex ClickHouse is a column-oriented database management system
  that allows generating analytical data reports in real time.
  .
- This package provides clickhouse client binary
+ This package provides clickhouse client binary.
 
 Package: clickhouse-utils
 Architecture: any
