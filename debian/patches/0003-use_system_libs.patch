@@ -9,7 +9,7 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/copy_headers.sh
 +++ b/copy_headers.sh
-@@ -26,18 +26,9 @@ for src_file in $(clang -M -xc++ -std=gn
+@@ -26,18 +26,9 @@ for src_file in $($CLANG -M -xc++ -std=g
      $(cat "$SOURCE_PATH/build/include_directories.txt") \
      "$SOURCE_PATH/dbms/src/Interpreters/SpecializedAggregator.h" |
      tr -d '\\' |
@@ -25,7 +25,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 -# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
 -#  заголовочные файлы, будет использоваться опция -march=native.
 -
--for i in $(ls -1 $(clang -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-for i in $(ls -1 $($CLANG -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
 -do
 -    cp "$i" "$DST/$i";
 -done
