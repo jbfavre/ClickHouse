@@ -3,9 +3,6 @@
 #include <Common/escapeForFileName.h>
 #include <DataTypes/DataTypeArray.h>
 #include <IO/HashingWriteBuffer.h>
-#include <Common/Stopwatch.h>
-#include <Interpreters/PartLog.h>
-#include <Interpreters/Context.h>
 #include <Poco/File.h>
 
 
@@ -86,11 +83,8 @@ BlocksWithDateIntervals MergeTreeDataWriter::splitBlockIntoParts(const Block & b
     return res;
 }
 
-MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithDateInterval & block_with_dates, Int64 temp_index)
+MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithDateInterval & block_with_dates)
 {
-    /// For logging
-    Stopwatch stopwatch;
-
     Block & block = block_with_dates.block;
     UInt16 min_date = block_with_dates.min_date;
     UInt16 max_date = block_with_dates.max_date;
@@ -105,21 +99,31 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithDa
 
     size_t part_size = (block.rows() + data.index_granularity - 1) / data.index_granularity;
 
+    static const String TMP_PREFIX = "tmp_insert_";
 
-    String part_name = ActiveDataPartSet::getPartName(
-        DayNum_t(min_date), DayNum_t(max_date),
-        temp_index, temp_index, 0);
-    String tmp_part_name = "tmp_" + part_name;
+    /// This will generate unique name in scope of current server process.
+    Int64 temp_index = data.insert_increment.get();
 
-    String part_tmp_path = data.getFullPath() + tmp_part_name + "/";
-
-    Poco::File(part_tmp_path).createDirectories();
+    String part_name = ActiveDataPartSet::getPartName(DayNum_t(min_date), DayNum_t(max_date), temp_index, temp_index, 0);
 
     MergeTreeData::MutableDataPartPtr new_data_part = std::make_shared<MergeTreeData::DataPart>(data);
-    new_data_part->name = tmp_part_name;
+    new_data_part->name = part_name;
+    new_data_part->relative_path = TMP_PREFIX + part_name;
     new_data_part->is_temp = true;
 
-    /// If you need to compute some columns to sort, we do it.
+    /// The name could be non-unique in case of stale files from previous runs.
+    String full_path = new_data_part->getFullPath();
+    Poco::File dir(full_path);
+
+    if (dir.exists())
+    {
+        LOG_WARNING(log, "Removing old temporary directory " + full_path);
+        dir.remove(true);
+    }
+
+    dir.createDirectories();
+
+    /// If you need to calculate some columns to sort, we do it.
     if (data.merging_params.mode != MergeTreeData::MergingParams::Unsorted)
         data.getPrimaryExpression()->execute(block);
 
@@ -142,7 +146,7 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithDa
     }
 
     NamesAndTypesList columns = data.getColumnsList().filter(block.getColumnsList().getNames());
-    MergedBlockOutputStream out(data, part_tmp_path, columns, CompressionMethod::LZ4);
+    MergedBlockOutputStream out(data, new_data_part->getFullPath(), columns, CompressionMethod::LZ4);
 
     out.writePrefix();
     out.writeWithPermutation(block, perm_ptr);
@@ -159,27 +163,11 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithDa
     new_data_part->columns = columns;
     new_data_part->checksums = checksums;
     new_data_part->index.swap(out.getIndex());
-    new_data_part->size_in_bytes = MergeTreeData::DataPart::calcTotalSize(part_tmp_path);
+    new_data_part->size_in_bytes = MergeTreeData::DataPart::calcTotalSize(new_data_part->getFullPath());
 
     ProfileEvents::increment(ProfileEvents::MergeTreeDataWriterRows, block.rows());
     ProfileEvents::increment(ProfileEvents::MergeTreeDataWriterUncompressedBytes, block.bytes());
     ProfileEvents::increment(ProfileEvents::MergeTreeDataWriterCompressedBytes, new_data_part->size_in_bytes);
-
-    if (std::shared_ptr<PartLog> part_log = context.getPartLog())
-    {
-        PartLogElement elem;
-        elem.event_time = time(0);
-
-        elem.event_type = PartLogElement::NEW_PART;
-        elem.size_in_bytes = new_data_part->size_in_bytes;
-        elem.duration_ms = stopwatch.elapsed() / 1000000;
-
-        elem.database_name = new_data_part->storage.getDatabaseName();
-        elem.table_name = new_data_part->storage.getTableName();
-        elem.part_name = part_name;
-
-        part_log->add(elem);
-    }
 
     return new_data_part;
 }

@@ -44,60 +44,14 @@ void ReplicatedMergeTreeCleanupThread::run()
 
 void ReplicatedMergeTreeCleanupThread::iterate()
 {
-    clearOldParts();
+    storage.clearOldPartsAndRemoveFromZK(log);
     storage.data.clearOldTemporaryDirectories();
-
-    if (storage.unreplicated_data)
-    {
-        storage.unreplicated_data->clearOldParts();
-        storage.unreplicated_data->clearOldTemporaryDirectories();
-    }
 
     if (storage.is_leader_node)
     {
         clearOldLogs();
         clearOldBlocks();
     }
-}
-
-
-void ReplicatedMergeTreeCleanupThread::clearOldParts()
-{
-    auto table_lock = storage.lockStructure(false);
-    auto zookeeper = storage.getZooKeeper();
-
-    MergeTreeData::DataPartsVector parts = storage.data.grabOldParts();
-    size_t count = parts.size();
-
-    if (!count)
-        return;
-
-    try
-    {
-        while (!parts.empty())
-        {
-            MergeTreeData::DataPartPtr & part = parts.back();
-
-            LOG_DEBUG(log, "Removing " << part->name);
-
-            zkutil::Ops ops;
-            storage.removePartFromZooKeeper(part->name, ops);
-            auto code = zookeeper->tryMulti(ops);
-            if (code != ZOK)
-                LOG_WARNING(log, "Couldn't remove " << part->name << " from ZooKeeper: " << zkutil::ZooKeeper::error2string(code));
-
-            part->remove();
-            parts.pop_back();
-        }
-    }
-    catch (...)
-    {
-        tryLogCurrentException(__PRETTY_FUNCTION__);
-        storage.data.addOldParts(parts);
-        throw;
-    }
-
-    LOG_DEBUG(log, "Removed " << count << " old parts");
 }
 
 
@@ -182,19 +136,11 @@ void ReplicatedMergeTreeCleanupThread::clearOldBlocks()
         timed_blocks.push_back(std::make_pair(stat.czxid, block));
     }
 
-    zkutil::Ops ops;
     std::sort(timed_blocks.begin(), timed_blocks.end(), std::greater<std::pair<Int64, String>>());
     for (size_t i = storage.data.settings.replicated_deduplication_window; i < timed_blocks.size(); ++i)
     {
-        ops.emplace_back(std::make_unique<zkutil::Op::Remove>(storage.zookeeper_path + "/blocks/" + timed_blocks[i].second + "/number", -1));
-        ops.emplace_back(std::make_unique<zkutil::Op::Remove>(storage.zookeeper_path + "/blocks/" + timed_blocks[i].second + "/checksum", -1));
-        ops.emplace_back(std::make_unique<zkutil::Op::Remove>(storage.zookeeper_path + "/blocks/" + timed_blocks[i].second, -1));
-
-        if (ops.size() > 400 || i + 1 == timed_blocks.size())
-        {
-            zookeeper->multi(ops);
-            ops.clear();
-        }
+        /// TODO After about half a year, we could replace this to multi op, because there will be no obsolete children nodes.
+        zookeeper->removeRecursive(storage.zookeeper_path + "/blocks/" + timed_blocks[i].second);
     }
 
     LOG_TRACE(log, "Cleared " << blocks.size() - storage.data.settings.replicated_deduplication_window << " old blocks from ZooKeeper");

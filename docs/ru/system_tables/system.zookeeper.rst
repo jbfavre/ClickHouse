@@ -9,7 +9,8 @@ system.zookeeper
 Если узла, указанного в path не существует, то будет брошено исключение.
 
 Столбцы:
-::
+
+.. code-block:: text
 
   name String          - имя узла
   path String          - путь к узлу
@@ -34,6 +35,8 @@ system.zookeeper
   FROM system.zookeeper
   WHERE path = '/clickhouse/tables/01-08/visits/replicas'
   FORMAT Vertical
+
+.. code-block:: text
 
   Row 1:
   ──────

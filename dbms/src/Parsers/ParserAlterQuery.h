@@ -6,13 +6,14 @@
 namespace DB
 {
 
-/** Запрос типа такого:
-  * ALTER TABLE [db.]name
+/** Query like this:
+  * ALTER TABLE [db.]name [ON CLUSTER cluster]
   *     [ADD COLUMN col_name type [AFTER col_after],]
-  *        [DROP COLUMN col_drop, ...]
-  *     [MODIFY COLUMN col_modify type, ...]
+  *     [DROP COLUMN col_to_drop, ...]
+  *     [CLEAR COLUMN col_to_clear [IN PARTITION partition],]
+  *     [MODIFY COLUMN col_to_modify type, ...]
   *     [MODIFY PRIMARY KEY (a, b, c...)]
-  *     [DROP|DETACH|ATTACH [UNREPLICATED] PARTITION|PART partition, ...]
+  *     [DROP|DETACH|ATTACH PARTITION|PART partition, ...]
   *     [FETCH PARTITION partition FROM ...]
   *     [FREEZE PARTITION]
   *        [RESHARD [COPY] PARTITION partition

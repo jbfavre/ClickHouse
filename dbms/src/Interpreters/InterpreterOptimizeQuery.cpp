@@ -1,5 +1,6 @@
 #include <Storages/IStorage.h>
 #include <Parsers/ASTOptimizeQuery.h>
+#include <Interpreters/Context.h>
 #include <Interpreters/InterpreterOptimizeQuery.h>
 
 
@@ -21,7 +22,7 @@ BlockIO InterpreterOptimizeQuery::execute()
 
     StoragePtr table = context.getTable(ast.database, ast.table);
     auto table_lock = table->lockStructure(true);
-    table->optimize(ast.partition, ast.final, ast.deduplicate, context.getSettings());
+    table->optimize(query_ptr, ast.partition, ast.final, ast.deduplicate, context.getSettings());
     return {};
 }
 

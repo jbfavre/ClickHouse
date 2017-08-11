@@ -173,8 +173,6 @@ void ReplicatedMergeTreeRestartingThread::run()
         storage.remote_part_checker_endpoint_holder = nullptr;
 
         storage.merger.cancelForever();
-        if (storage.unreplicated_merger)
-            storage.unreplicated_merger->cancelForever();
 
         partialShutdown();
 
@@ -213,9 +211,9 @@ bool ReplicatedMergeTreeRestartingThread::tryStartup()
         storage.shutdown_event.reset();
 
         storage.queue_updating_thread = std::thread(&StorageReplicatedMergeTree::queueUpdatingThread, &storage);
+        storage.part_check_thread.start();
         storage.alter_thread = std::make_unique<ReplicatedMergeTreeAlterThread>(storage);
         storage.cleanup_thread = std::make_unique<ReplicatedMergeTreeCleanupThread>(storage);
-        storage.part_check_thread.start();
 
         if (!storage.queue_task_handle)
             storage.queue_task_handle = storage.context.getBackgroundPool().addTask(
@@ -225,7 +223,7 @@ bool ReplicatedMergeTreeRestartingThread::tryStartup()
     }
     catch (...)
     {
-        storage.replica_is_active_node     = nullptr;
+        storage.replica_is_active_node  = nullptr;
         storage.leader_election         = nullptr;
 
         try
