@@ -112,7 +112,7 @@ void ReplicatedMergeTreeRestartingThread::run()
                 first_time = false;
             }
 
-            time_t current_time = time(0);
+            time_t current_time = time(nullptr);
             if (current_time >= prev_time_of_check_delay + static_cast<time_t>(storage.data.settings.check_delay_period))
             {
                 /// Find out lag of replicas.
@@ -197,12 +197,13 @@ bool ReplicatedMergeTreeRestartingThread::tryStartup()
         activateReplica();
         updateQuorumIfWeHavePart();
 
-        storage.leader_election = std::make_shared<zkutil::LeaderElection>(
-            storage.zookeeper_path + "/leader_election",
-            *storage.current_zookeeper,     /// current_zookeeper lives for the lifetime of leader_election,
-                                            ///  since before changing `current_zookeeper`, `leader_election` object is destroyed in `partialShutdown` method.
-            [this] { storage.becomeLeader(); CurrentMetrics::add(CurrentMetrics::LeaderReplica); },
-            storage.replica_name);
+        if (storage.data.settings.replicated_can_become_leader)
+            storage.leader_election = std::make_shared<zkutil::LeaderElection>(
+                storage.zookeeper_path + "/leader_election",
+                *storage.current_zookeeper,     /// current_zookeeper lives for the lifetime of leader_election,
+                                                ///  since before changing `current_zookeeper`, `leader_election` object is destroyed in `partialShutdown` method.
+                [this] { storage.becomeLeader(); CurrentMetrics::add(CurrentMetrics::LeaderReplica); },
+                storage.replica_name);
 
         /// Anything above can throw a KeeperException if something is wrong with ZK.
         /// Anything below should not throw exceptions.

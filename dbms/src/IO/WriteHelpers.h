@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <limits>
 #include <algorithm>
+#include <iterator>
 
 #include <common/DateLUT.h>
 #include <common/LocalDate.h>
@@ -11,15 +12,17 @@
 #include <common/find_first_symbols.h>
 
 #include <Core/Types.h>
+#include <Core/UUID.h>
 #include <Common/Exception.h>
 #include <Common/StringUtils.h>
+#include <Common/UInt128.h>
 #include <common/StringRef.h>
 
 #include <IO/WriteBuffer.h>
 #include <IO/WriteIntText.h>
 #include <IO/VarInt.h>
-#include <IO/WriteBufferFromString.h>
 #include <IO/DoubleConverter.h>
+#include <IO/WriteBufferFromString.h>
 
 
 namespace DB
@@ -28,6 +31,7 @@ namespace DB
 namespace ErrorCodes
 {
     extern const int CANNOT_PRINT_FLOAT_OR_DOUBLE_NUMBER;
+    extern const int ILLEGAL_TYPE_OF_ARGUMENT;
 }
 
 /// Helper functions for formatted and binary output.
@@ -145,12 +149,12 @@ inline void writeString(const StringRef & ref, WriteBuffer & buf)
     (buf).write((s), strlen(s))
 
 /** Writes a string for use in the JSON format:
- *  - the string is outputted in double quotes
- *  - forward slash character '/' is escaped
+ *  - the string is written in double quotes
+ *  - slash character '/' is escaped for compatibility with JavaScript
  *  - bytes from the range 0x00-0x1F except `\b', '\f', '\n', '\r', '\t' are escaped as \u00XX
  *  - code points U+2028 and U+2029 (byte sequences in UTF-8: e2 80 a8, e2 80 a9) are escaped as \u2028 and \u2029
- *  - it is assumed that string is the UTF-8 encoded, the invalid UTF-8 is not processed
- *  - non-ASCII characters remain as is
+ *  - it is assumed that string is in UTF-8, the invalid UTF-8 is not processed
+ *  - all other non-ASCII characters remain as is
  */
 inline void writeJSONString(const char * begin, const char * end, WriteBuffer & buf)
 {
@@ -192,10 +196,13 @@ inline void writeJSONString(const char * begin, const char * end, WriteBuffer & 
                 writeChar('"', buf);
                 break;
             default:
-                if (0x00 <= *it && *it <= 0x1F)
+                UInt8 c = *it;
+                if (0x00 <= c && c <= 0x1F)
                 {
-                    char higher_half = (*it) >> 4;
-                    char lower_half = (*it) & 0xF;
+                    /// Escaping of ASCII control characters.
+
+                    UInt8 higher_half = c >> 4;
+                    UInt8 lower_half = c & 0xF;
 
                     writeCString("\\u00", buf);
                     writeChar('0' + higher_half, buf);
@@ -207,10 +214,16 @@ inline void writeJSONString(const char * begin, const char * end, WriteBuffer & 
                 }
                 else if (end - it >= 3 && it[0] == '\xE2' && it[1] == '\x80' && (it[2] == '\xA8' || it[2] == '\xA9'))
                 {
+                    /// This is for compatibility with JavaScript, because unescaped line separators are prohibited in string literals,
+                    ///  and these code points are alternative line separators.
+
                     if (it[2] == '\xA8')
                         writeCString("\\u2028", buf);
                     if (it[2] == '\xA9')
                         writeCString("\\u2029", buf);
+
+                    /// Byte sequence is 3 bytes long. We have additional two bytes to skip.
+                    it += 2;
                 }
                 else
                     writeChar(*it, buf);
@@ -471,6 +484,18 @@ inline void writeXMLString(const StringRef & s, WriteBuffer & buf)
     writeXMLString(s.data, s.data + s.size, buf);
 }
 
+template <typename IteratorSrc, typename IteratorDst>
+void formatHex(IteratorSrc src, IteratorDst dst, const size_t num_bytes);
+void formatUUID(const UInt8 * src16, UInt8 * dst36);
+void formatUUID(std::reverse_iterator<const UInt8 *> dst16, UInt8 * dst36);
+
+inline void writeUUIDText(const UUID & uuid, WriteBuffer & buf)
+{
+    char s[36];
+
+    formatUUID(std::reverse_iterator<const UInt8 *>(reinterpret_cast<const UInt8 *>(&uuid) + 16), reinterpret_cast<UInt8 *>(s));
+    buf.write(s, sizeof(s));
+}
 
 /// in YYYY-MM-DD format
 inline void writeDateText(DayNum_t date, WriteBuffer & buf)
@@ -583,6 +608,8 @@ writeBinary(const T & x, WriteBuffer & buf) { writePODBinary(x, buf); }
 
 inline void writeBinary(const String & x, WriteBuffer & buf) { writeStringBinary(x, buf); }
 inline void writeBinary(const StringRef & x, WriteBuffer & buf) { writeStringBinary(x, buf); }
+inline void writeBinary(const UInt128 & x, WriteBuffer & buf) { writePODBinary(x, buf); }
+inline void writeBinary(const UInt256 & x, WriteBuffer & buf) { writePODBinary(x, buf); }
 inline void writeBinary(const LocalDate & x, WriteBuffer & buf) { writePODBinary(x, buf); }
 inline void writeBinary(const LocalDateTime & x, WriteBuffer & buf) { writePODBinary(x, buf); }
 
@@ -608,6 +635,14 @@ inline void writeText(const char * x, size_t size, WriteBuffer & buf) { writeEsc
 
 inline void writeText(const LocalDate & x,        WriteBuffer & buf) { writeDateText(x, buf); }
 inline void writeText(const LocalDateTime & x,    WriteBuffer & buf) { writeDateTimeText(x, buf); }
+inline void writeText(const UUID & x, WriteBuffer & buf) { writeUUIDText(x, buf); }
+inline void writeText(const UInt128 & x, WriteBuffer & buf)
+{
+    /** Because UInt128 isn't a natural type, without arithmetic operator and only use as an intermediary type -for UUID-
+     *  it should never arrive here. But because we used the DataTypeNumber class we should have at least a definition of it.
+     */
+    throw Exception("UInt128 cannot be write as a text", ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT);
+}
 
 /// String, date, datetime are in single quotes with C-style escaping. Numbers - without.
 template <typename T>
@@ -652,6 +687,13 @@ inline void writeDoubleQuoted(const LocalDateTime & x,    WriteBuffer & buf)
     writeChar('"', buf);
 }
 
+inline void writeDoubleQuoted(const UUID & x, WriteBuffer & buf)
+{
+    writeChar('"', buf);
+    writeText(x, buf);
+    writeChar('"', buf);
+}
+
 
 /// String - in double quotes and with CSV-escaping; date, datetime - in double quotes. Numbers - without.
 template <typename T>
@@ -661,7 +703,14 @@ writeCSV(const T & x, WriteBuffer & buf) { writeText(x, buf); }
 inline void writeCSV(const String & x,        WriteBuffer & buf) { writeCSVString<>(x, buf); }
 inline void writeCSV(const LocalDate & x,    WriteBuffer & buf) { writeDoubleQuoted(x, buf); }
 inline void writeCSV(const LocalDateTime & x, WriteBuffer & buf) { writeDoubleQuoted(x, buf); }
-
+inline void writeCSV(const UUID & x, WriteBuffer & buf) { writeDoubleQuoted(x, buf); }
+inline void writeCSV(const UInt128, WriteBuffer & buf)
+{
+    /** Because UInt128 isn't a natural type, without arithmetic operator and only use as an intermediary type -for UUID-
+     *  it should never arrive here. But because we used the DataTypeNumber class we should have at least a definition of it.
+     */
+    throw Exception("UInt128 cannot be write as a text", ErrorCodes::ILLEGAL_TYPE_OF_ARGUMENT);
+}
 
 template <typename T>
 void writeBinary(const std::vector<T> & x, WriteBuffer & buf)
@@ -714,12 +763,9 @@ void writeException(const Exception & e, WriteBuffer & buf);
 template <typename T>
 inline String toString(const T & x)
 {
-    String res;
-    {
-        WriteBufferFromString buf(res);
-        writeText(x, buf);
-    }
-    return res;
+    WriteBufferFromOwnString buf;
+    writeText(x, buf);
+    return buf.str();
 }
 
 }

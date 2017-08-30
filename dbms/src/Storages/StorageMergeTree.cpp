@@ -6,6 +6,7 @@
 #include <Storages/MergeTree/MergeList.h>
 #include <Databases/IDatabase.h>
 #include <Common/escapeForFileName.h>
+#include <Common/typeid_cast.h>
 #include <Interpreters/InterpreterAlterQuery.h>
 #include <Interpreters/PartLog.h>
 #include <Parsers/ASTFunction.h>
@@ -100,13 +101,13 @@ StorageMergeTree::~StorageMergeTree()
 
 BlockInputStreams StorageMergeTree::read(
     const Names & column_names,
-    const ASTPtr & query,
+    const SelectQueryInfo & query_info,
     const Context & context,
     QueryProcessingStage::Enum & processed_stage,
     const size_t max_block_size,
     const unsigned num_streams)
 {
-    return reader.read(column_names, query, context, processed_stage, max_block_size, num_streams, nullptr, 0);
+    return reader.read(column_names, query_info, context, processed_stage, max_block_size, num_streams, nullptr, 0);
 }
 
 BlockOutputStreamPtr StorageMergeTree::write(const ASTPtr & query, const Settings & settings)
@@ -342,7 +343,7 @@ bool StorageMergeTree::merge(
     if (auto part_log = context.getPartLog(database_name, table_name))
     {
         PartLogElement elem;
-        elem.event_time = time(0);
+        elem.event_time = time(nullptr);
 
         elem.merged_from.reserve(merging_tagger->parts.size());
         for (const auto & part : merging_tagger->parts)

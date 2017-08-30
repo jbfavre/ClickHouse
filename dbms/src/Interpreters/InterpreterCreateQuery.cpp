@@ -5,7 +5,6 @@
 
 #include <Common/escapeForFileName.h>
 
-#include <IO/WriteBufferFromString.h>
 #include <IO/WriteBufferFromFile.h>
 #include <IO/WriteHelpers.h>
 
@@ -178,17 +177,13 @@ static ColumnsAndDefaults parseColumns(
     ASTPtr default_expr_list = std::make_shared<ASTExpressionList>();
     default_expr_list->children.reserve(column_list_ast.children.size());
 
-    const DataTypeFactory & data_type_factory = DataTypeFactory::instance();
-
     for (auto & ast : column_list_ast.children)
     {
         auto & col_decl = typeid_cast<ASTColumnDeclaration &>(*ast);
 
         if (col_decl.type)
         {
-            const auto & type_range = col_decl.type->range;
-            columns.emplace_back(col_decl.name,
-                data_type_factory.get({ type_range.first, type_range.second }));
+            columns.emplace_back(col_decl.name, DataTypeFactory::instance().get(col_decl.type));
         }
         else
             /// we're creating dummy DataTypeUInt8 in order to prevent the NullPointerException in ExpressionActions

@@ -114,7 +114,7 @@ private:
 
 BlockInputStreams StorageBuffer::read(
     const Names & column_names,
-    const ASTPtr & query,
+    const SelectQueryInfo & query_info,
     const Context & context,
     QueryProcessingStage::Enum & processed_stage,
     size_t max_block_size,
@@ -131,7 +131,7 @@ BlockInputStreams StorageBuffer::read(
         if (destination.get() == this)
             throw Exception("Destination table is myself. Read will cause infinite loop.", ErrorCodes::INFINITE_LOOP);
 
-        streams_from_dst = destination->read(column_names, query, context, processed_stage, max_block_size, num_streams);
+        streams_from_dst = destination->read(column_names, query_info, context, processed_stage, max_block_size, num_streams);
     }
 
     BlockInputStreams streams_from_buffers;
@@ -144,7 +144,7 @@ BlockInputStreams StorageBuffer::read(
       */
     if (processed_stage > QueryProcessingStage::FetchColumns)
         for (auto & stream : streams_from_buffers)
-            stream = InterpreterSelectQuery(query, context, processed_stage, 0, stream).execute().in;
+            stream = InterpreterSelectQuery(query_info.query, context, processed_stage, 0, stream).execute().in;
 
     streams_from_dst.insert(streams_from_dst.end(), streams_from_buffers.begin(), streams_from_buffers.end());
     return streams_from_dst;
@@ -296,7 +296,7 @@ private:
 
     void insertIntoBuffer(const Block & block, StorageBuffer::Buffer & buffer, std::unique_lock<std::mutex> && lock)
     {
-        time_t current_time = time(0);
+        time_t current_time = time(nullptr);
 
         /// Sort the columns in the block. This is necessary to make it easier to concatenate the blocks later.
         Block sorted_block = block.sortColumns();
@@ -434,7 +434,7 @@ void StorageBuffer::flushAllBuffers(const bool check_thresholds)
 void StorageBuffer::flushBuffer(Buffer & buffer, bool check_thresholds)
 {
     Block block_to_write;
-    time_t current_time = time(0);
+    time_t current_time = time(nullptr);
 
     size_t rows = 0;
     size_t bytes = 0;
