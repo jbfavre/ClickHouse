@@ -1,5 +1,3 @@
-include_directories (include)
-
 if (APPLE)
     if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin" AND NOT "${CMAKE_SYSTEM_VERSION}" VERSION_LESS "16.1.0")
         set (APPLE_SIERRA_OR_NEWER 1)
@@ -16,6 +14,7 @@ if (APPLE)
         src/apple_rt.cpp
         include/common/apple_rt.h
     )
+    target_include_directories (apple_rt PUBLIC ${COMMON_INCLUDE_DIR})
 endif ()
 
 add_library (common
@@ -38,7 +37,6 @@ add_library (common
     include/common/likely.h
     include/common/logger_useful.h
     include/common/MultiVersion.h
-    include/common/singleton.h
     include/common/strong_typedef.h
     include/common/JSON.h
     include/common/getMemoryAmount.h
@@ -55,6 +53,7 @@ add_library (common
     include/ext/scope_guard.h
     include/ext/size.h
     include/ext/unlock_guard.h
+    include/ext/singleton.h
 
     ${CONFIG_COMMON}
 )
@@ -80,11 +79,12 @@ find_package (Threads)
 
 target_include_directories (common BEFORE PRIVATE ${CCTZ_INCLUDE_DIR})
 target_include_directories (common BEFORE PUBLIC ${CITYHASH_INCLUDE_DIR})
-target_include_directories (common BEFORE PUBLIC ${COMMON_INCLUDE_DIR})
+target_include_directories (common PUBLIC ${COMMON_INCLUDE_DIR})
 
 target_link_libraries (
     common
     pocoext
+    ${CITYHASH_LIBRARIES}
     ${CCTZ_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

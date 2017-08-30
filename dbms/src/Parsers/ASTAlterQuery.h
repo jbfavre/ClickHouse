@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Parsers/IAST.h>
+#include <Parsers/ASTQueryWithOutput.h>
 #include <Parsers/ASTQueryWithOnCluster.h>
 
 
@@ -19,7 +20,7 @@ namespace DB
  *              [COORDINATE WITH 'coordinator_id']
  */
 
-class ASTAlterQuery : public IAST, public ASTQueryWithOnCluster
+class ASTAlterQuery : public ASTQueryWithOutput, public ASTQueryWithOnCluster
 {
 public:
     enum ParameterType
@@ -76,7 +77,6 @@ public:
 
         /** For RESHARD PARTITION.
           */
-        ASTPtr last_partition;
         ASTPtr weighted_zookeeper_paths;
         ASTPtr sharding_key_expr;
         ASTPtr coordinator;
@@ -97,17 +97,17 @@ public:
 
     void addParameters(const Parameters & params);
 
-    ASTAlterQuery(StringRange range_ = StringRange());
+    explicit ASTAlterQuery(StringRange range_ = StringRange());
 
     /** Get the text that identifies this element. */
     String getID() const override;
 
     ASTPtr clone() const override;
 
-    ASTPtr getRewrittenASTWithoutOnCluster(const std::string & new_database = {}) const override;
+    ASTPtr getRewrittenASTWithoutOnCluster(const std::string & new_database) const override;
 
 protected:
-    void formatImpl(const FormatSettings & settings, FormatState & state, FormatStateStacked frame) const override;
+    void formatQueryImpl(const FormatSettings & settings, FormatState & state, FormatStateStacked frame) const override;
 };
 
 }

@@ -1,8 +1,11 @@
 #include <chrono>
 #include <iomanip>
 
-#include <Poco/Net/HTTPBasicCredentials.h>
 #include <Poco/File.h>
+#include <Poco/Net/HTTPBasicCredentials.h>
+#include <Poco/Net/HTTPServerRequest.h>
+#include <Poco/Net/HTTPServerResponse.h>
+#include <Poco/Net/NetException.h>
 
 #include <ext/scope_guard.h>
 
@@ -30,6 +33,7 @@
 
 #include <Interpreters/executeQuery.h>
 #include <Interpreters/Quota.h>
+#include <Common/typeid_cast.h>
 
 #include "HTTPHandler.h"
 
@@ -184,7 +188,7 @@ void HTTPHandler::pushDelayedResults(Output & used_output)
 }
 
 
-HTTPHandler::HTTPHandler(Server & server_)
+HTTPHandler::HTTPHandler(IServer & server_)
     : server(server_)
     , log(&Logger::get("HTTPHandler"))
 {
@@ -224,8 +228,8 @@ void HTTPHandler::processQuery(
     std::string quota_key = request.get("X-ClickHouse-Quota", params.get("quota_key", ""));
     std::string query_id = params.get("query_id", "");
 
-    Context context = *server.global_context;
-    context.setGlobalContext(*server.global_context);
+    Context context = server.context();
+    context.setGlobalContext(server.context());
 
     context.setUser(user, password, request.clientAddress(), quota_key);
     context.setCurrentQueryId(query_id);
@@ -429,6 +433,8 @@ void HTTPHandler::processQuery(
         "session_id", "session_timeout", "session_check"
     };
 
+    const Settings & settings = context.getSettingsRef();
+
     for (auto it = params.begin(); it != params.end(); ++it)
     {
         if (it->first == "database")
@@ -445,18 +451,20 @@ void HTTPHandler::processQuery(
         else
         {
             /// All other query parameters are treated as settings.
+            String value;
+            /// Setting is skipped if value wasn't changed.
+            if (!settings.tryGet(it->first, value) || it->second != value)
+            {
+                if (readonly_before_query == 1)
+                    throw Exception("Cannot override setting (" + it->first + ") in readonly mode", ErrorCodes::READONLY);
 
-            if (readonly_before_query == 1)
-                throw Exception("Cannot override setting (" + it->first + ") in readonly mode", ErrorCodes::READONLY);
+                if (readonly_before_query && it->first == "readonly")
+                    throw Exception("Setting 'readonly' cannot be overrided in readonly mode", ErrorCodes::READONLY);
 
-            if (readonly_before_query && it->first == "readonly")
-                throw Exception("Setting 'readonly' cannot be overrided in readonly mode", ErrorCodes::READONLY);
-
-            context.setSetting(it->first, it->second);
+                context.setSetting(it->first, it->second);
+            }
         }
     }
-
-    const Settings & settings = context.getSettingsRef();
 
     /// HTTP response compression is turned on only if the client signalled that they support it
     /// (using Accept-Encoding header) and 'enable_http_compression' setting is turned on.

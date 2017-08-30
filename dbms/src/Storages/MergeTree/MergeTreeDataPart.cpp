@@ -234,7 +234,7 @@ void MergeTreeDataPartChecksums::add(MergeTreeDataPartChecksums && rhs_checksums
     rhs_checksums.files.clear();
 }
 
-/// Control sum computed from the set of control sums of .bin files.
+/// Checksum computed from the set of control sums of .bin files.
 void MergeTreeDataPartChecksums::summaryDataChecksum(SipHash & hash) const
 {
     /// We use fact that iteration is in deterministic (lexicographical) order.
@@ -256,12 +256,9 @@ void MergeTreeDataPartChecksums::summaryDataChecksum(SipHash & hash) const
 
 String MergeTreeDataPartChecksums::toString() const
 {
-    String s;
-    {
-        WriteBufferFromString out(s);
-        write(out);
-    }
-    return s;
+    WriteBufferFromOwnString out;
+    write(out);
+    return out.str();
 }
 
 MergeTreeDataPartChecksums MergeTreeDataPartChecksums::parse(const String & s)
@@ -327,9 +324,7 @@ String MergeTreeDataPart::getColumnNameWithMinumumCompressedSize() const
     }
 
     if (!minimum_size_column)
-        throw Exception{
-            "Could not find a column of minimum size in MergeTree",
-            ErrorCodes::LOGICAL_ERROR};
+        throw Exception("Could not find a column of minimum size in MergeTree, part " + getFullPath(), ErrorCodes::LOGICAL_ERROR);
 
     return *minimum_size_column;
 }
@@ -374,6 +369,9 @@ size_t MergeTreeDataPart::getExactSizeRows() const
 
 String MergeTreeDataPart::getFullPath() const
 {
+    if (relative_path.empty())
+        throw Exception("Part relative_path cannot be empty. This is bug.", ErrorCodes::LOGICAL_ERROR);
+
     return storage.full_path + relative_path + "/";
 }
 
@@ -431,7 +429,10 @@ size_t MergeTreeDataPart::calcTotalSize(const String & from)
 
 void MergeTreeDataPart::remove() const
 {
-    String from = storage.full_path + name;
+    if (relative_path.empty())
+        throw Exception("Part relative_path cannot be empty. This is bug.", ErrorCodes::LOGICAL_ERROR);
+
+    String from = storage.full_path + relative_path;
     String to = storage.full_path + "tmp_delete_" + name;
 
     Poco::File from_dir{from};
@@ -589,7 +590,7 @@ void MergeTreeDataPart::loadChecksums(bool require)
 
 void MergeTreeDataPart::accumulateColumnSizes(ColumnToSize & column_to_size) const
 {
-    Poco::ScopedReadRWLock part_lock(columns_lock);
+    std::shared_lock<std::shared_mutex> part_lock(columns_lock);
     for (const NameAndTypePair & column : *storage.columns)
         if (Poco::File(getFullPath() + escapeForFileName(column.name) + ".bin").exists())
             column_to_size[column.name] += Poco::File(getFullPath() + escapeForFileName(column.name) + ".bin").getSize();
@@ -713,7 +714,7 @@ size_t MergeTreeDataPart::getIndexSizeInAllocatedBytes() const
 {
     size_t res = 0;
     for (const ColumnPtr & column : index)
-        res += column->allocatedSize();
+        res += column->allocatedBytes();
     return res;
 }
 
