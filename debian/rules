@@ -26,14 +26,6 @@ override_dh_auto_test:
 override_dh_auto_build:
 	# Remove some embedded libs since we use system ones
 	# quilt patch doesn't work here becasue of some zip files in directory tree
-	rm -rf contrib/libboost
-	rm -rf contrib/libpoco
-	rm -rf contrib/libtcmalloc
-	rm -rf contrib/libdouble-conversion
-	rm -rf contrib/liblz4
-	rm -rf contrib/libsparsehash
-	rm -rf contrib/libzookeeper
-	rm -rf contrib/libzstd
 	dh_testdir
 	mkdir -p build && cd build && cmake .. -DUNBUNDLED=1 -DUSE_STATIC_LIBRARIES=0 -DINTERNAL_COMPILER_SAME=1
 	for target in ${BUILD_TARGETS}; \

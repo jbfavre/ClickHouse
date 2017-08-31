@@ -1,9 +1,11 @@
+contrib/googletest/
+contrib/libdouble-conversion/
 contrib/libboost/
 contrib/libpoco/
-contrib/libtcmalloc/
-contrib/libdouble-conversion/
 contrib/liblz4/
+contrib/libre2/
 contrib/libsparsehash/
+contrib/libtcmalloc/
 contrib/libzookeeper/
 contrib/libzstd/
 obj-x86_64-linux-gnu/
