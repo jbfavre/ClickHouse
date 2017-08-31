@@ -9,7 +9,7 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/copy_headers.sh
 +++ b/copy_headers.sh
-@@ -26,18 +26,9 @@ for src_file in $($CLANG -M -xc++ -std=g
+@@ -30,18 +30,9 @@ for src_file in $($CLANG -M -xc++ -std=g
      $(cat "$SOURCE_PATH/build/include_directories.txt") \
      "$SOURCE_PATH/dbms/src/Interpreters/SpecializedAggregator.h" |
      tr -d '\\' |
