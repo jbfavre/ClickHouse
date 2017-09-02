@@ -1,0 +1,883 @@
+Description: Fix tests
+ Some tests don't work when running a standalone clickhouse server
+ They should be skipped because we use the --no-shard option
+ But need to be renamed
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-08-31
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/dbms/tests/queries/0_stateless/00062_replicated_merge_tree_alter_zookeeper.reference
++++ /dev/null
+@@ -1,216 +0,0 @@
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	10	42
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	9	41	1992-01-01 08:00:00
+-2015-01-01	10	42	0000-00-00 00:00:00
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	['2000-01-01','2000-01-01','2000-01-03']
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-s	String	DEFAULT	\'0\'
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date),  s String DEFAULT \'0\') ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-s	String	DEFAULT	\'0\'
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  `n.d` Array(Date),  s String DEFAULT \'0\') ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	['2000-01-01','2000-01-01','2000-01-03']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	['2000-01-01','2000-01-01','2000-01-03']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	['0000-00-00','0000-00-00','0000-00-00']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	Int64		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s Int64) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	Int64		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s Int64) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	UInt32		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s UInt32,  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.ui8	Array(UInt8)		
+-n.s	Array(String)		
+-s	UInt32		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.ui8` Array(UInt8),  `n.s` Array(String),  s UInt32,  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	[10,20,30]	['asd','qwe','qwe']	100500	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	7	39	2014-07-14 13:26:50	[10,20,30]	['120','130','140']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	8	40	2012-12-12 12:12:12	[1,2,3]	['12','13','14']	0	['0000-00-00','0000-00-00','0000-00-00']
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	[]	0	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	[]	0	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.s	Array(String)		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.s` Array(String),  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-n.s	Array(String)		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  `n.s` Array(String),  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	['asd','qwe','qwe']	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	['120','130','140']	0
+-2015-01-01	8	40	2012-12-12 12:12:12	['12','13','14']	0
+-2015-01-01	9	41	1992-01-01 08:00:00	[]	0
+-2015-01-01	10	42	0000-00-00 00:00:00	[]	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	0
+-2015-01-01	8	40	2012-12-12 12:12:12	0
+-2015-01-01	9	41	1992-01-01 08:00:00	0
+-2015-01-01	10	42	0000-00-00 00:00:00	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32,  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-n.s	Array(String)		
+-n.d	Array(Date)		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32,  `n.s` Array(String),  `n.d` Array(Date)) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500	[]	[]
+-2015-01-01	7	39	2014-07-14 13:26:50	0	[]	[]
+-2015-01-01	8	40	2012-12-12 12:12:12	0	[]	[]
+-2015-01-01	9	41	1992-01-01 08:00:00	0	[]	[]
+-2015-01-01	10	42	0000-00-00 00:00:00	0	[]	[]
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	DateTime		
+-s	UInt32		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt DateTime,  s UInt32) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15 13:26:50	100500
+-2015-01-01	7	39	2014-07-14 13:26:50	0
+-2015-01-01	8	40	2012-12-12 12:12:12	0
+-2015-01-01	9	41	1992-01-01 08:00:00	0
+-2015-01-01	10	42	0000-00-00 00:00:00	0
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	Date		
+-s	DateTime		
+-CREATE TABLE test.replicated_alter1 ( d Date,  k UInt64,  i32 Int32,  dt Date,  s DateTime) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r1\', d, k, 8192)
+-d	Date		
+-k	UInt64		
+-i32	Int32		
+-dt	Date		
+-s	DateTime		
+-CREATE TABLE test.replicated_alter2 ( d Date,  k UInt64,  i32 Int32,  dt Date,  s DateTime) ENGINE = ReplicatedMergeTree(\'/clickhouse/tables/test/alter\', \'r2\', d, k, 8192)
+-2015-01-01	6	38	2014-07-15	1970-01-02 06:55:00
+-2015-01-01	7	39	2014-07-14	0000-00-00 00:00:00
+-2015-01-01	8	40	2012-12-12	0000-00-00 00:00:00
+-2015-01-01	9	41	1992-01-01	0000-00-00 00:00:00
+-2015-01-01	10	42	0000-00-00	0000-00-00 00:00:00
+--- a/dbms/tests/queries/0_stateless/00062_replicated_merge_tree_alter_zookeeper.sql
++++ /dev/null
+@@ -1,107 +0,0 @@
+-DROP TABLE IF EXISTS test.replicated_alter1;
+-DROP TABLE IF EXISTS test.replicated_alter2;
+-CREATE TABLE test.replicated_alter1 (d Date, k UInt64, i32 Int32) ENGINE=ReplicatedMergeTree('/clickhouse/tables/test/alter', 'r1', d, k, 8192);
+-CREATE TABLE test.replicated_alter2 (d Date, k UInt64, i32 Int32) ENGINE=ReplicatedMergeTree('/clickhouse/tables/test/alter', 'r2', d, k, 8192);
+-
+-INSERT INTO test.replicated_alter1 VALUES ('2015-01-01', 10, 42);
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN dt DateTime;
+-INSERT INTO test.replicated_alter1 VALUES ('2015-01-01', 9, 41, '1992-01-01 08:00:00');
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN n Nested(ui8 UInt8, s String);
+-INSERT INTO test.replicated_alter1 VALUES ('2015-01-01', 8, 40, '2012-12-12 12:12:12', [1,2,3], ['12','13','14']);
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN `n.d` Array(Date);
+-INSERT INTO test.replicated_alter1 VALUES ('2015-01-01', 7, 39, '2014-07-14 13:26:50', [10,20,30], ['120','130','140'],['2000-01-01','2000-01-01','2000-01-03']);
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN s String DEFAULT '0';
+-INSERT INTO test.replicated_alter1 VALUES ('2015-01-01', 6,38,'2014-07-15 13:26:50',[10,20,30],['asd','qwe','qwe'],['2000-01-01','2000-01-01','2000-01-03'],'100500');
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 DROP COLUMN `n.d`, MODIFY COLUMN s Int64;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN `n.d` Array(Date), MODIFY COLUMN s UInt32;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 DROP COLUMN n.ui8, DROP COLUMN n.d;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 DROP COLUMN n.s;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 ADD COLUMN n.s Array(String), ADD COLUMN n.d Array(Date);
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 DROP COLUMN n;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-ALTER TABLE test.replicated_alter1 MODIFY COLUMN dt Date, MODIFY COLUMN s DateTime;
+-
+-DESC TABLE test.replicated_alter1;
+-SHOW CREATE TABLE test.replicated_alter1;
+-DESC TABLE test.replicated_alter2;
+-SHOW CREATE TABLE test.replicated_alter2;
+-SELECT * FROM test.replicated_alter1 ORDER BY k;
+-
+-DROP TABLE test.replicated_alter1;
+-DROP TABLE test.replicated_alter2;
+--- a/dbms/tests/queries/0_stateless/00083_create_merge_tree_zookeeper.sql
++++ /dev/null
+@@ -1,118 +0,0 @@
+-DROP TABLE IF EXISTS test.merge_tree;
+-DROP TABLE IF EXISTS test.collapsing_merge_tree;
+-DROP TABLE IF EXISTS test.summing_merge_tree;
+-DROP TABLE IF EXISTS test.summing_merge_tree_with_list_of_columns_to_sum;
+-DROP TABLE IF EXISTS test.aggregating_merge_tree;
+-
+-DROP TABLE IF EXISTS test.merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.collapsing_merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.summing_merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.summing_merge_tree_with_sampling_with_list_of_columns_to_sum;
+-DROP TABLE IF EXISTS test.aggregating_merge_tree_with_sampling;
+-
+-DROP TABLE IF EXISTS test.replicated_merge_tree;
+-DROP TABLE IF EXISTS test.replicated_collapsing_merge_tree;
+-DROP TABLE IF EXISTS test.replicated_summing_merge_tree;
+-DROP TABLE IF EXISTS test.replicated_summing_merge_tree_with_list_of_columns_to_sum;
+-DROP TABLE IF EXISTS test.replicated_aggregating_merge_tree;
+-
+-DROP TABLE IF EXISTS test.replicated_merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.replicated_collapsing_merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.replicated_summing_merge_tree_with_sampling;
+-DROP TABLE IF EXISTS test.replicated_summing_merge_tree_with_sampling_with_list_of_columns_to_sum;
+-DROP TABLE IF EXISTS test.replicated_aggregating_merge_tree_with_sampling;
+-
+-
+-CREATE TABLE test.merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = MergeTree(d, (a, b), 111);
+-CREATE TABLE test.collapsing_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = CollapsingMergeTree(d, (a, b), 111, y);
+-CREATE TABLE test.summing_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = SummingMergeTree(d, (a, b), 111);
+-CREATE TABLE test.summing_merge_tree_with_list_of_columns_to_sum
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = SummingMergeTree(d, (a, b), 111, (y, z));
+-CREATE TABLE test.aggregating_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = AggregatingMergeTree(d, (a, b), 111);
+-
+-CREATE TABLE test.merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = MergeTree(d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-CREATE TABLE test.collapsing_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = CollapsingMergeTree(d, sipHash64(a) + b, (a, sipHash64(a) + b), 111, y);
+-CREATE TABLE test.summing_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = SummingMergeTree(d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-CREATE TABLE test.summing_merge_tree_with_sampling_with_list_of_columns_to_sum
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = SummingMergeTree(d, sipHash64(a) + b, (a, sipHash64(a) + b), 111, (y, z));
+-CREATE TABLE test.aggregating_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = AggregatingMergeTree(d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-
+-CREATE TABLE test.replicated_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedMergeTree('/clickhouse/tables/01/replicated_merge_tree/', 'r1', d, (a, b), 111);
+-CREATE TABLE test.replicated_collapsing_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedCollapsingMergeTree('/clickhouse/tables/01/replicated_collapsing_merge_tree/', 'r1', d, (a, b), 111, y);
+-CREATE TABLE test.replicated_summing_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedSummingMergeTree('/clickhouse/tables/01/replicated_summing_merge_tree/', 'r1', d, (a, b), 111);
+-CREATE TABLE test.replicated_summing_merge_tree_with_list_of_columns_to_sum
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedSummingMergeTree('/clickhouse/tables/01/replicated_summing_merge_tree_with_list_of_columns_to_sum/', 'r1', d, (a, b), 111, (y, z));
+-CREATE TABLE test.replicated_aggregating_merge_tree
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/01/replicated_aggregating_merge_tree/', 'r1', d, (a, b), 111);
+-
+-CREATE TABLE test.replicated_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedMergeTree('/clickhouse/tables/01/replicated_merge_tree_with_sampling/', 'r1', d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-CREATE TABLE test.replicated_collapsing_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedCollapsingMergeTree('/clickhouse/tables/01/replicated_collapsing_merge_tree_with_sampling/', 'r1', d, sipHash64(a) + b, (a, sipHash64(a) + b), 111, y);
+-CREATE TABLE test.replicated_summing_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedSummingMergeTree('/clickhouse/tables/01/replicated_summing_merge_tree_with_sampling/', 'r1', d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-CREATE TABLE test.replicated_summing_merge_tree_with_sampling_with_list_of_columns_to_sum
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedSummingMergeTree('/clickhouse/tables/01/replicated_summing_merge_tree_with_sampling_with_list_of_columns_to_sum/', 'r1', d, sipHash64(a) + b, (a, sipHash64(a) + b), 111, (y, z));
+-CREATE TABLE test.replicated_aggregating_merge_tree_with_sampling
+-	(d Date, a String, b UInt8, x String, y Int8, z UInt32) ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/01/replicated_aggregating_merge_tree_with_sampling/', 'r1', d, sipHash64(a) + b, (a, sipHash64(a) + b), 111);
+-
+-
+-INSERT INTO test.merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.collapsing_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.summing_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.summing_merge_tree_with_list_of_columns_to_sum VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.aggregating_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-
+-INSERT INTO test.merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.collapsing_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.summing_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.summing_merge_tree_with_sampling_with_list_of_columns_to_sum VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.aggregating_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-
+-INSERT INTO test.replicated_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_collapsing_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_summing_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_summing_merge_tree_with_list_of_columns_to_sum VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_aggregating_merge_tree VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-
+-INSERT INTO test.replicated_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_collapsing_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_summing_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_summing_merge_tree_with_sampling_with_list_of_columns_to_sum VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-INSERT INTO test.replicated_aggregating_merge_tree_with_sampling VALUES ('2000-01-01', 'Hello, world!', 123, 'xxx yyy', -123, 123456789);
+-
+-
+-DROP TABLE test.merge_tree;
+-DROP TABLE test.collapsing_merge_tree;
+-DROP TABLE test.summing_merge_tree;
+-DROP TABLE test.summing_merge_tree_with_list_of_columns_to_sum;
+-DROP TABLE test.aggregating_merge_tree;
+-
+-DROP TABLE test.merge_tree_with_sampling;
+-DROP TABLE test.collapsing_merge_tree_with_sampling;
+-DROP TABLE test.summing_merge_tree_with_sampling;
+-DROP TABLE test.summing_merge_tree_with_sampling_with_list_of_columns_to_sum;
+-DROP TABLE test.aggregating_merge_tree_with_sampling;
+-
+-DROP TABLE test.replicated_merge_tree;
+-DROP TABLE test.replicated_collapsing_merge_tree;
+-DROP TABLE test.replicated_summing_merge_tree;
+-DROP TABLE test.replicated_summing_merge_tree_with_list_of_columns_to_sum;
+-DROP TABLE test.replicated_aggregating_merge_tree;
+-
+-DROP TABLE test.replicated_merge_tree_with_sampling;
+-DROP TABLE test.replicated_collapsing_merge_tree_with_sampling;
+-DROP TABLE test.replicated_summing_merge_tree_with_sampling;
+-DROP TABLE test.replicated_summing_merge_tree_with_sampling_with_list_of_columns_to_sum;
+-DROP TABLE test.replicated_aggregating_merge_tree_with_sampling;
+--- a/dbms/tests/queries/0_stateless/00121_drop_column_zookeeper.reference
++++ /dev/null
+@@ -1,13 +0,0 @@
+-columns format version: 1
+-1 columns:
+-`d` Date
+-
+-2014-01-01
+-2014-01-01	0
+-2014-02-01	1
+-2014-01-01
+-2014-02-01
+-columns format version: 1
+-1 columns:
+-`d` Date
+-
+--- a/dbms/tests/queries/0_stateless/00121_drop_column_zookeeper.sql
++++ /dev/null
+@@ -1,27 +0,0 @@
+-DROP TABLE IF EXISTS test.alter;
+-CREATE TABLE test.alter (d Date, x UInt8) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/alter', 'r1', d, (d), 8192);
+-
+-INSERT INTO test.alter VALUES ('2014-01-01', 1);
+-ALTER TABLE test.alter DROP COLUMN x;
+-
+-SELECT value FROM system.zookeeper WHERE path = '/clickhouse/tables/test/alter/replicas/r1/parts/20140101_20140101_0_0_0' AND name = 'columns' FORMAT TabSeparatedRaw;
+-
+-DROP TABLE test.alter;
+-
+-
+-CREATE TABLE test.alter (d Date) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/alter', 'r1', d, (d), 8192);
+-
+-INSERT INTO test.alter VALUES ('2014-01-01');
+-SELECT * FROM test.alter ORDER BY d;
+-
+-ALTER TABLE test.alter ADD COLUMN x UInt8;
+-
+-INSERT INTO test.alter VALUES ('2014-02-01', 1);
+-SELECT * FROM test.alter ORDER BY d;
+-
+-ALTER TABLE test.alter DROP COLUMN x;
+-SELECT * FROM test.alter ORDER BY d;
+-
+-SELECT value FROM system.zookeeper WHERE path = '/clickhouse/tables/test/alter/replicas/r1/parts/20140201_20140201_0_0_0' AND name = 'columns' FORMAT TabSeparatedRaw;
+-
+-DROP TABLE test.alter;
+--- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.reference
++++ /dev/null
+@@ -1 +0,0 @@
+-0
+--- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.sql
++++ /dev/null
+@@ -1 +0,0 @@
+-SELECT dummy FROM (SELECT dummy, NOT dummy AS x FROM remote('127.0.0.{1,2}', system.one) GROUP BY dummy HAVING x);
+--- a/dbms/tests/queries/0_stateless/00236_replicated_drop_on_non_leader_zookeeper.reference
++++ /dev/null
+@@ -1,5 +0,0 @@
+-2014-01-01
+-2014-02-01
+-2014-03-01
+-2014-01-01
+-2014-03-01
+--- a/dbms/tests/queries/0_stateless/00236_replicated_drop_on_non_leader_zookeeper.sql
++++ /dev/null
+@@ -1,18 +0,0 @@
+-SET replication_alter_partitions_sync = 2;
+-
+-DROP TABLE IF EXISTS test.attach_r1;
+-DROP TABLE IF EXISTS test.attach_r2;
+-
+-CREATE TABLE test.attach_r1 (d Date) ENGINE = ReplicatedMergeTree('/clickhouse/tables/01/attach', 'r1', d, d, 8192);
+-CREATE TABLE test.attach_r2 (d Date) ENGINE = ReplicatedMergeTree('/clickhouse/tables/01/attach', 'r2', d, d, 8192);
+-
+-INSERT INTO test.attach_r1 VALUES ('2014-01-01'), ('2014-02-01'), ('2014-03-01');
+-
+-SELECT d FROM test.attach_r1 ORDER BY d;
+-
+-ALTER TABLE test.attach_r2 DROP PARTITION 201402;
+-
+-SELECT d FROM test.attach_r1 ORDER BY d;
+-
+-DROP TABLE test.attach_r1;
+-DROP TABLE test.attach_r2;
+--- a/dbms/tests/queries/0_stateless/00226_zookeeper_deduplication_and_unexpected_parts.reference
++++ /dev/null
+@@ -1,2 +0,0 @@
+-2015-01-01	1
+-2015-01-01	1
+--- a/dbms/tests/queries/0_stateless/00226_zookeeper_deduplication_and_unexpected_parts.sql
++++ /dev/null
+@@ -1,28 +0,0 @@
+-DROP TABLE IF EXISTS test.deduplication;
+-CREATE TABLE test.deduplication (d Date DEFAULT '2015-01-01', x Int8) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/deduplication', 'r1', d, x, 1);
+-
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-INSERT INTO test.deduplication (x) VALUES (1);
+-
+-SELECT * FROM test.deduplication;
+-
+-DETACH TABLE test.deduplication;
+-ATTACH TABLE test.deduplication (d Date DEFAULT '2015-01-01', x Int8) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/deduplication', 'r1', d, x, 1);
+-
+-SELECT * FROM test.deduplication;
+-
+-DROP TABLE test.deduplication;
+--- a/dbms/tests/queries/0_stateless/00215_primary_key_order_zookeeper.reference
++++ /dev/null
+@@ -1,5 +0,0 @@
+-1
+-2
+-3
+-2
+-3
+--- a/dbms/tests/queries/0_stateless/00215_primary_key_order_zookeeper.sql
++++ /dev/null
+@@ -1,14 +0,0 @@
+-DROP TABLE IF EXISTS test.primary_key;
+-CREATE TABLE test.primary_key (d Date DEFAULT today(), x Int8) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/primary_key', 'r1', d, -x, 1);
+-
+-INSERT INTO test.primary_key (x) VALUES (1), (2), (3);
+-INSERT INTO test.primary_key (x) VALUES (1), (3), (2);
+-INSERT INTO test.primary_key (x) VALUES (2), (1), (3);
+-INSERT INTO test.primary_key (x) VALUES (2), (3), (1);
+-INSERT INTO test.primary_key (x) VALUES (3), (1), (2);
+-INSERT INTO test.primary_key (x) VALUES (3), (2), (1);
+-
+-SELECT x FROM test.primary_key ORDER BY x;
+-SELECT x FROM test.primary_key WHERE -x < -1 ORDER BY x;
+-
+-DROP TABLE test.primary_key;
+--- a/dbms/tests/queries/0_stateless/00446_clear_column_in_partition.reference
++++ /dev/null
+@@ -1,33 +0,0 @@
+-1	a
+-2	b
+-0	a
+-2	b
+-all
+-2000-01-01	0	
+-2000-01-01	1	a
+-2000-01-01	3	c
+-2000-02-01	0	
+-2000-02-01	2	b
+-2000-02-01	4	d
+-w/o i 1
+-2000-01-01	0	
+-2000-01-01	0	a
+-2000-01-01	0	c
+-2000-02-01	0	
+-2000-02-01	2	b
+-2000-02-01	4	d
+-w/o is 1
+-2000-01-01	0	
+-2000-01-01	0	
+-2000-01-01	0	
+-2000-02-01	0	
+-2000-02-01	2	b
+-2000-02-01	4	d
+-w/o is 12
+-2000-01-01	0	
+-2000-02-01	0	
+-2000-01-01	0	
+-2000-02-01	0	
+-sizes
+-0
+-0
+--- a/dbms/tests/queries/0_stateless/00446_clear_column_in_partition.sql
++++ /dev/null
+@@ -1,63 +0,0 @@
+-DROP TABLE IF EXISTS test.clear_column;
+-CREATE TABLE test.clear_column (d Date, num Int64, str String) ENGINE = MergeTree(d, d, 8192);
+-
+-INSERT INTO test.clear_column VALUES ('2016-12-12', 1, 'a'), ('2016-11-12', 2, 'b');
+-
+-SELECT num, str FROM test.clear_column ORDER BY num;
+-ALTER TABLE test.clear_column CLEAR COLUMN num IN PARTITION '201612';
+-SELECT num, str FROM test.clear_column ORDER BY num;
+-
+-DROP TABLE test.clear_column;
+-
+--- Replicated case
+-
+-DROP TABLE IF EXISTS test.clear_column1;
+-DROP TABLE IF EXISTS test.clear_column2;
+-CREATE TABLE test.clear_column1 (d Date, i Int64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/clear_column', '1', d, d, 8192);
+-CREATE TABLE test.clear_column2 (d Date, i Int64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/clear_column', '2', d, d, 8192);
+-
+-INSERT INTO test.clear_column1 (d) VALUES ('2000-01-01'), ('2000-02-01');
+-
+-SET replication_alter_partitions_sync=2;
+-ALTER TABLE test.clear_column1 ADD COLUMN s String;
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200001';
+-
+-INSERT INTO test.clear_column1 VALUES ('2000-01-01', 1, 'a'), ('2000-02-01', 2, 'b');
+-INSERT INTO test.clear_column1 VALUES ('2000-01-01', 3, 'c'), ('2000-02-01', 4, 'd');
+-
+-SELECT 'all';
+-SELECT * FROM test.clear_column1 ORDER BY d, i, s;
+-
+-SELECT 'w/o i 1';
+-ALTER TABLE test.clear_column1 CLEAR COLUMN i IN PARTITION '200001';
+-SELECT * FROM test.clear_column2 ORDER BY d, i, s;
+-
+-SELECT 'w/o is 1';
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200001';
+-SELECT * FROM test.clear_column2 ORDER BY d, i, s;
+-
+-SELECT 'w/o is 12';
+-ALTER TABLE test.clear_column1 CLEAR COLUMN i IN PARTITION '200002';
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200002';
+-SELECT DISTINCT * FROM test.clear_column2 ORDER BY d, i, s;
+-SELECT DISTINCT * FROM test.clear_column2 ORDER BY d, i, s;
+-
+-SELECT 'sizes';
+-SELECT sum(data_uncompressed_bytes) FROM system.columns WHERE database='test' AND table LIKE 'clear_column_' AND (name = 'i' OR name = 's') GROUP BY table;
+-
+--- double call should be OK
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200001';
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200002';
+-
+--- clear column in empty partition should be Ok
+-ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200012', CLEAR COLUMN i IN PARTITION '200012';
+--- Drop empty partition also Ok
+-ALTER TABLE test.clear_column1 DROP PARTITION '200012', DROP PARTITION '200011';
+-
+-
+--- check optimize for non-leader replica (it is not related with CLEAR COLUMN)
+-OPTIMIZE TABLE test.clear_column1;
+-OPTIMIZE TABLE test.clear_column2;
+-
+-DROP TABLE IF EXISTS test.clear_column1;
+-DROP TABLE IF EXISTS test.clear_column2;
+--- a/dbms/tests/queries/0_stateless/00446_clear_column_in_partition_concurrent.reference
++++ /dev/null
+@@ -1,4 +0,0 @@
+-2000-01-01	0	
+-2000-02-01	0	
+-2000-01-01	0	
+-2000-02-01	0	
+--- a/dbms/tests/queries/0_stateless/00446_clear_column_in_partition_concurrent.sh
++++ /dev/null
+@@ -1,35 +0,0 @@
+-#!/bin/bash
+-
+-ch="clickhouse-client --stacktrace -q"
+-
+-$ch "DROP TABLE IF EXISTS test.clear_column1"
+-$ch "DROP TABLE IF EXISTS test.clear_column2"
+-$ch "CREATE TABLE test.clear_column1 (d Date, i Int64, s String) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/clear_column', '1', d, d, 8192)"
+-$ch "CREATE TABLE test.clear_column2 (d Date, i Int64, s String) ENGINE = ReplicatedMergeTree('/clickhouse/tables/test/clear_column', '2', d, d, 8192)"
+-
+-$ch "ALTER TABLE test.clear_column1 CLEAR COLUMN VasyaUnexistingColumn IN PARTITION '200001'" 1>/dev/null 2>/dev/null
+-rc=$?
+-if [ $rc -eq 0 ]; then
+-    echo "An unexisisting column was ALTERed. Code: $rc"
+-    exit -1
+-fi
+-
+-set -e
+-$ch "INSERT INTO test.clear_column1 VALUES ('2000-01-01', 1, 'a'), ('2000-02-01', 2, 'b')"
+-$ch "INSERT INTO test.clear_column1 VALUES ('2000-01-01', 3, 'c'), ('2000-02-01', 4, 'd')"
+-
+-for i in `seq 3`; do
+-    $ch "INSERT INTO test.clear_column1 VALUES ('2000-02-01', 0, ''), ('2000-02-01', 0, '')" & # insert into the same partition
+-    $ch "ALTER TABLE test.clear_column1 CLEAR COLUMN i IN PARTITION '200001'" --replication_alter_partitions_sync=2 &
+-    $ch "ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200001'" --replication_alter_partitions_sync=2 &
+-    $ch "ALTER TABLE test.clear_column1 CLEAR COLUMN i IN PARTITION '200002'" --replication_alter_partitions_sync=2 &
+-    $ch "ALTER TABLE test.clear_column1 CLEAR COLUMN s IN PARTITION '200002'" --replication_alter_partitions_sync=2 &
+-    $ch "INSERT INTO test.clear_column1 VALUES ('2000-03-01', 3, 'c'), ('2000-03-01', 4, 'd')" & # insert into other partition
+-done
+-wait
+-
+-$ch "SELECT DISTINCT * FROM test.clear_column1 WHERE d != toDate('2000-03-01') ORDER BY d, i, s"
+-$ch "SELECT DISTINCT * FROM test.clear_column2 WHERE d != toDate('2000-03-01') ORDER BY d, i, s"
+-
+-#$ch "DROP TABLE IF EXISTS test.clear_column1"
+-#$ch "DROP TABLE IF EXISTS test.clear_column2"
+--- a/dbms/tests/queries/0_stateless/00113_group_array.reference
++++ /dev/null
+@@ -1,90 +0,0 @@
+-0	100
+-1	100
+-2	100
+-3	100
+-4	100
+-5	100
+-6	100
+-7	100
+-8	100
+-9	100
+-
+-0	1000000
+-
+-21
+-41
+-1000000	500000500000	1000000
+-1000000	500000500000	1000000
+-1000000	500000500000	1000000	500000500000
+-1000000	500000500000	1000000	500000500000
+-2000000	1000001000000	1000000
+-2000000	1000001000000	1000000
+-2000000	1000001000000	1000000	1000001000000
+-
+-512	1	512	512
+-1024	1	1024	1024
+-2048	1	1024	2048
+-4096	1	1024	4096
+-8192	1	1024	8192
+-16384	1	1024	16384
+-32768	1	1024	32768
+-65536	1	1024	65536
+-131072	1	1024	65536
+-262144	1	1024	65536
+-524288	1	1024	65536
+-512	1	512	512
+-1024	1	1024	1024
+-2048	1	1024	2048
+-4096	1	1024	4096
+-8192	1	1024	8192
+-16384	1	1024	16384
+-32768	1	1024	32768
+-65536	1	1024	65536
+-131072	1	1024	65536
+-262144	1	1024	65536
+-524288	1	1024	65536
+-512	1	512	512
+-1024	1	1024	1024
+-2048	1	1024	2048
+-4096	1	1024	4096
+-8192	1	1024	8192
+-16384	1	1024	16384
+-32768	1	1024	32768
+-65536	1	1024	65536
+-131072	1	1024	65536
+-262144	1	1024	65536
+-524288	1	1024	65536
+-
+-512	1	1024	1024
+-1024	1	1500	2048
+-2048	1	1500	4096
+-4096	1	1500	8192
+-8192	1	1500	16384
+-16384	1	1500	32768
+-32768	1	1500	65536
+-65536	1	1500	70000
+-131072	1	1500	70000
+-262144	1	1500	70000
+-524288	1	1500	70000
+-512	1	1024	1024
+-1024	1	1500	2048
+-2048	1	1500	4096
+-4096	1	1500	8192
+-8192	1	1500	16384
+-16384	1	1500	32768
+-32768	1	1500	65536
+-65536	1	1500	70000
+-131072	1	1500	70000
+-262144	1	1500	70000
+-524288	1	1500	70000
+-512	1	1024	1024
+-1024	1	1500	2048
+-2048	1	1500	4096
+-4096	1	1500	8192
+-8192	1	1500	16384
+-16384	1	1500	32768
+-32768	1	1500	65536
+-65536	1	1500	70000
+-131072	1	1500	70000
+-262144	1	1500	70000
+-524288	1	1500	70000
+--- a/dbms/tests/queries/0_stateless/00113_group_array.sql
++++ /dev/null
+@@ -1,37 +0,0 @@
+-SELECT intDiv(number, 100) AS k, length(groupArray(number)) FROM (SELECT * FROM system.numbers LIMIT 1000000) GROUP BY k WITH TOTALS ORDER BY k LIMIT 10;
+-
+-SELECT '';
+-SELECT length(toString(groupArrayState(toDate(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
+-SELECT length(toString(groupArrayState(toDateTime(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
+-
+-DROP TABLE IF EXISTS test.numbers_mt;
+-CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
+-INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1000000;
+-
+-SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
+-SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
+-SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
+-SELECT count(), sum(ns[1]), max(ns[1]), sum(ns[2])/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([number, number*10]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
+-
+-SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
+-SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
+-SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
+-
+-DROP TABLE test.numbers_mt;
+-CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
+-INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1048575;
+-
+-SELECT '';
+-SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
+-SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
+-SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
+-
+-SELECT '';
+-SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
+-SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
+-SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
+-
+-DROP TABLE test.numbers_mt;
+-
+--- Check binary compability:
+--- clickhouse-client -h old -q "SELECT arrayReduce('groupArrayState', [['1'], ['22'], ['333']]) FORMAT RowBinary" | clickhouse-local --input-format RowBinary --structure "d AggregateFunction(groupArray2, Array(String))" -q "SELECT groupArray2Merge(d) FROM table"

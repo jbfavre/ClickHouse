@@ -8,7 +8,7 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/clickhouse-test
 +++ b/dbms/tests/clickhouse-test
-@@ -58,7 +58,7 @@ def main(args):
+@@ -58,14 +58,14 @@ def main(args):
  
      if args.zookeeper is None:
          try:
@@ -17,3 +17,47 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              args.zookeeper = True
          except CalledProcessError:
              args.zookeeper = False
+ 
+     if args.shard is None:
+         try:
+-            check_call(['grep', '-qE', '"127.0.0.2|<listen_host>::</listen_host>"', '/etc/clickhouse-server/config-preprocessed.xml'], )
++            check_call(['grep', '-qE', '"127.0.0.2|<listen_host>::</listen_host>"', '../../debian/clickhouse-server-config-tests.xml'], )
+             args.shard = True
+         except CalledProcessError:
+             # TODO: false here after setting <listen_host>::1</listen_host>
+--- a/dbms/tests/queries/0_stateless/00428_partition.sh
++++ b/dbms/tests/queries/0_stateless/00428_partition.sh
+@@ -5,7 +5,7 @@ set -e
+ # Test 1. Complex test checking columns.txt
+ 
+ chl="clickhouse-client -q"
+-ch_dir=`clickhouse --extract-from-config -c /etc/clickhouse-server/config.xml -k path`
++ch_dir=`clickhouse --extract-from-config -c ../../debian/clickhouse-server-config-tests.xml -k path`
+ 
+ $chl "DROP TABLE IF EXISTS test.partition_428"
+ $chl "CREATE TABLE test.partition_428 (p Date, k Int8, v1 Int8 MATERIALIZED k + 1) ENGINE = MergeTree(p, k, 1)"
+@@ -13,14 +13,14 @@ $chl "INSERT INTO test.partition_428 (p,
+ $chl "INSERT INTO test.partition_428 (p, k) VALUES(toDate(1), 2)"
+ 
+ for part in `$chl "SELECT name FROM system.parts WHERE database='test' AND table='partition_428'"`; do
+-    sudo cat $ch_dir/data/test/partition_428/$part/columns.txt | wc -l # 2 header lines + 3 columns
++    cat $ch_dir/data/test/partition_428/$part/columns.txt | wc -l # 2 header lines + 3 columns
+ done
+ 
+ $chl "ALTER TABLE test.partition_428 DETACH PARTITION 197001"
+ $chl "ALTER TABLE test.partition_428 ATTACH PARTITION 197001"
+ 
+ for part in `$chl "SELECT name FROM system.parts WHERE database='test' AND table='partition_428'"`; do
+-    sudo cat $ch_dir/data/test/partition_428/$part/columns.txt | wc -l # 2 header lines + 3 columns
++    cat $ch_dir/data/test/partition_428/$part/columns.txt | wc -l # 2 header lines + 3 columns
+ done
+ 
+ $chl "ALTER TABLE test.partition_428 MODIFY COLUMN v1 Int8"
+--- a/dbms/tests/queries/0_stateless/00379_system_processes_port.sh
++++ b/dbms/tests/queries/0_stateless/00379_system_processes_port.sh
+@@ -1,4 +1,4 @@
+ #!/usr/bin/env bash
+ set -e
+ 
+-curl -sS --local-port 1390 'http://localhost:8123?query=SELECT%20port%20FROM%20system.processes%20ORDER%20BY%20elapsed%20LIMIT%201'
++curl -sS --local-port 1390 'http://127.0.0.1:8123?query=SELECT%20port%20FROM%20system.processes%20ORDER%20BY%20elapsed%20LIMIT%201'

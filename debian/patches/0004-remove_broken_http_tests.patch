@@ -1,0 +1,972 @@
+--- a/dbms/tests/queries/0_stateless/00429_http_bufferization.sh
++++ /dev/null
+@@ -1,110 +0,0 @@
+-#!/bin/bash
+-set -e
+-
+-max_block_size=100
+-URL='http://localhost:8123/'
+-
+-function query {
+-    echo "SELECT toUInt8(intHash64(number)) FROM system.numbers LIMIT $1 FORMAT RowBinary"
+-}
+-
+-function ch_url() {
+-    curl -sS "$URL?max_block_size=$max_block_size&$1" -d "`query $2`"
+-}
+-
+-
+-# Check correct exceptions handling
+-
+-exception_pattern="Code: 307, e\.displayText() = DB::Exception:[[:print:]]* e\.what() = DB::Exception$"
+-
+-function check_only_exception() {
+-    local res=`ch_url "$1" "$2"`
+-    #(echo "$res")
+-    #(echo "$res" | wc -l)
+-    #(echo "$res" | grep -c "^$exception_pattern")
+-    [[ `echo "$res" | wc -l` -eq 1 ]] || echo FAIL
+-    [[ $(echo "$res" | grep -c "^$exception_pattern") -eq 1 ]] || echo FAIL
+-}
+-
+-function check_last_line_exception() {
+-    local res=`ch_url "$1" "$2"`
+-    #echo "$res" > res
+-    #echo "$res" | wc -c
+-    #echo "$res" | tail -n -2
+-    [[ $(echo "$res" | tail -n -1 | grep -c "$exception_pattern") -eq 1 ]] || echo FAIL
+-    [[ $(echo "$res" | head -n -1 | grep -c "$exception_pattern") -eq 0 ]] || echo FAIL
+-}
+-
+-function check_exception_handling() {
+-    check_only_exception "max_result_bytes=1000"                         1001
+-    check_only_exception "max_result_bytes=1000&wait_end_of_query=1"    1001
+-
+-    check_only_exception "max_result_bytes=1048576&buffer_size=1048576&wait_end_of_query=0" 1048577
+-    check_only_exception "max_result_bytes=1048576&buffer_size=1048576&wait_end_of_query=1" 1048577
+-
+-    check_only_exception "max_result_bytes=1500000&buffer_size=2500000&wait_end_of_query=0" 1500001
+-    check_only_exception "max_result_bytes=1500000&buffer_size=1500000&wait_end_of_query=1" 1500001
+-
+-    check_only_exception         "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=1" 5000000
+-    check_only_exception         "max_result_bytes=4000000&wait_end_of_query=1" 5000000
+-    check_last_line_exception     "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=0" 5000000
+-}
+-
+-check_exception_handling
+-
+-
+-# Tune setting to speed up combinatorial test
+-max_block_size=500000
+-corner_sizes="1048576 `seq 500000 1000000 3500000`"
+-
+-
+-# Check HTTP results with clickhouse-client in normal case
+-
+-function cmp_cli_and_http() {
+-    clickhouse-client -q "`query $1`" > res1
+-    ch_url "buffer_size=$2&wait_end_of_query=0" "$1" > res2
+-    ch_url "buffer_size=$2&wait_end_of_query=1" "$1" > res3
+-    cmp res1 res2 && cmp res1 res3 || echo FAIL
+-    rm -rf res1 res2 res3
+-}
+-
+-function check_cli_and_http() {
+-    for input_size in $corner_sizes; do
+-        for buffer_size in $corner_sizes; do
+-            #echo "$input_size" "$buffer_size"
+-            cmp_cli_and_http "$input_size" "$buffer_size"
+-        done
+-    done
+-}
+-
+-check_cli_and_http
+-
+-
+-# Check HTTP internal compression in normal case
+-# Skip if clickhouse-compressor not installed
+-
+-function cmp_http_compression() {
+-    clickhouse-client -q "`query $1`" > res0
+-    ch_url 'compress=1' $1 | clickhouse-compressor --decompress > res1
+-    ch_url "compress=1&buffer_size=$2&wait_end_of_query=0" $1 | clickhouse-compressor --decompress > res2
+-    ch_url "compress=1&buffer_size=$2&wait_end_of_query=1" $1 | clickhouse-compressor --decompress > res3
+-    cmp res0 res1
+-    cmp res1 res2
+-    cmp res1 res3
+-    rm -rf res0 res1 res2 res3
+-}
+-
+-function check_http_compression() {
+-    for input_size in $corner_sizes; do
+-        for buffer_size in $corner_sizes; do
+-            #echo "$input_size" "$buffer_size"
+-            cmp_http_compression "$input_size" "$buffer_size"
+-        done
+-    done
+-}
+-
+-has_compressor=$(command -v clickhouse-compressor &>/dev/null && echo 1 || echo 0)
+-
+-if [[ $has_compressor -eq 1 ]]; then
+-    check_http_compression
+-fi
+--- a/dbms/tests/queries/0_stateless/00463_sessions_in_http_interface.reference
++++ /dev/null
+@@ -1 +0,0 @@
+-PASSED
+--- a/dbms/tests/queries/0_stateless/00463_sessions_in_http_interface.sh
++++ /dev/null
+@@ -1,109 +0,0 @@
+-#!/usr/bin/env bash
+-
+-
+-request() {
+-    local url="$1"
+-    local select="$2"
+-    curl --silent $url --data "$select"
+-}
+-
+-
+-create_temporary_table() {
+-    local url="$1"
+-    request $url "CREATE TEMPORARY TABLE temp (x String)"
+-    request $url "INSERT INTO temp VALUES ('Hello'), ('World')"
+-}
+-
+-
+-check() {
+-    local url="$1"
+-    local select="$2"
+-    local output="$3"
+-    local expected_result="$4"
+-    local message="$5"
+-    result=$(request $url "$select" | grep --count "$output")
+-    if [ $result -ne $expected_result ]; then
+-        echo "FAILED: $message"
+-        exit 1
+-    fi
+-}
+-
+-
+-address="localhost"
+-port="8123"
+-url="http://$address:$port/"
+-session="?session_id=test_$$"
+-select="SELECT * FROM system.settings WHERE name = 'max_rows_to_read'"
+-select_from_temporary_table="SELECT * FROM temp ORDER BY x"
+-select_from_non_existent_table="SELECT * FROM no_such_table ORDER BY x"
+-
+-
+-check "$url?session_id=no_such_session_$$&session_check=1" "$select" "Exception.*Session not found" 1 "session_check=1 does not work."
+-check "$url$session&session_check=0" "$select" "Exception" 0 "session_check=0 does not work."
+-
+-request $url$session "SET max_rows_to_read=7777777"
+-
+-check "$url$session&session_timeout=string" "$select" "Exception.*Invalid session timeout" 1 "Non-numeric value accepted as a timeout."
+-check "$url$session&session_timeout=3601" "$select" "Exception.*Maximum session timeout*" 1 "More then 3600 seconds accepted as a timeout."
+-check "$url$session&session_timeout=-1" "$select" "Exception.*Invalid session timeout" 1 "Negative timeout accepted."
+-check "$url$session&session_timeout=0" "$select" "Exception" 0 "Zero timeout not accepted."
+-check "$url$session&session_timeout=3600" "$select" "Exception" 0 "3600 second timeout not accepted."
+-check "$url$session&session_timeout=60" "$select" "Exception" 0 "60 second timeout not accepted."
+-
+-check $url$session "$select" "7777777" 1 "Failed to reuse session."
+-# Workaround here
+-# TODO: move the test to integration test or add readonly user to test environment
+-if [[ -z `request "$url?user=readonly" "SELECT ''"` ]]; then
+-    # We have readonly user
+-    check "$url$session&user=readonly&session_check=1" "$select" "Exception.*Session not found" 1 "Session is accessable for another user."
+-else
+-    check "$url$session&user=readonly&session_check=1" "$select" "Exception.*Unknown user*" 1 "Session is accessable for unknown user."
+-fi
+-
+-create_temporary_table $url$session
+-check $url$session "$select_from_temporary_table" "Hello" 1 "Failed to reuse a temporary table for session."
+-
+-check "$url?session_id=another_session_$$" "$select_from_temporary_table" "Exception.*Table .* doesn't exist." 1 "Temporary table is visible for another table."
+-
+-
+-( (
+-cat <<EOF
+-POST /$session HTTP/1.1
+-Host: $address:$port
+-Accept: */*
+-Content-Length: 62
+-Content-Type: application/x-www-form-urlencoded
+-
+-EOF
+-sleep 4
+-) | telnet $address $port >/dev/null 2>/dev/null) &
+-sleep 1
+-check $url$session "$select" "Exception.*Session is locked" 1 "Double access to the same session."
+-
+-
+-session="?session_id=test_timeout_$$"
+-
+-create_temporary_table "$url$session&session_timeout=1"
+-check "$url$session&session_timeout=1" "$select_from_temporary_table" "Hello" 1 "Failed to reuse a temporary table for session."
+-sleep 3
+-check "$url$session&session_check=1" "$select" "Exception.*Session not found" 1 "Session did not expire on time."
+-
+-create_temporary_table "$url$session&session_timeout=2"
+-for i in $(seq 1 3); do
+-    check "$url$session&session_timeout=2" "$select_from_temporary_table" "Hello" 1 "Session expired too early."
+-    sleep 1
+-done
+-sleep 3
+-check "$url$session&session_check=1" "$select" "Exception.*Session not found" 1 "Session did not expire on time."
+-
+-create_temporary_table "$url$session&session_timeout=2"
+-for i in $(seq 1 5); do
+-    check "$url$session&session_timeout=2" "$select_from_non_existent_table" "Exception.*Table .* doesn't exist." 1 "Session expired too early."
+-    sleep 1
+-done
+-check "$url$session&session_timeout=2" "$select_from_temporary_table" "Hello" 1 "Session expired too early. Failed to update timeout in case of exceptions."
+-sleep 4
+-check "$url$session&session_check=1" "$select" "Exception.*Session not found" 1 "Session did not expire on time."
+-
+-
+-echo "PASSED"
+--- a/dbms/tests/queries/0_stateless/00039_inserts_through_http.reference
++++ /dev/null
+@@ -1,728 +0,0 @@
+-a	1
+-b	1
+-c	1
+-d	1
+-e	1
+-f	1
+-g	1
+-h	1
+-i	1
+-j	1
+-k	1
+-l	1
+-m	1
+-n	1
+-o	1
+-p	1
+-q	1
+-r	1
+-s	1
+-t	1
+-u	1
+-v	1
+-w	1
+-x	1
+-y	1
+-z	1
+-a	1
+-a	10
+-b	1
+-b	10
+-c	1
+-c	10
+-d	1
+-d	10
+-e	1
+-e	10
+-f	1
+-f	10
+-g	1
+-g	10
+-h	1
+-h	10
+-i	1
+-i	10
+-j	1
+-j	10
+-k	1
+-k	10
+-l	1
+-l	10
+-m	1
+-m	10
+-n	1
+-n	10
+-o	1
+-o	10
+-p	1
+-p	10
+-q	1
+-q	10
+-r	1
+-r	10
+-s	1
+-s	10
+-t	1
+-t	10
+-u	1
+-u	10
+-v	1
+-v	10
+-w	1
+-w	10
+-x	1
+-x	10
+-y	1
+-y	10
+-z	1
+-z	10
+-a	1
+-a	10
+-a	100
+-b	1
+-b	10
+-b	100
+-c	1
+-c	10
+-c	100
+-d	1
+-d	10
+-d	100
+-e	1
+-e	10
+-e	100
+-f	1
+-f	10
+-f	100
+-g	1
+-g	10
+-g	100
+-h	1
+-h	10
+-h	100
+-i	1
+-i	10
+-i	100
+-j	1
+-j	10
+-j	100
+-k	1
+-k	10
+-k	100
+-l	1
+-l	10
+-l	100
+-m	1
+-m	10
+-m	100
+-n	1
+-n	10
+-n	100
+-o	1
+-o	10
+-o	100
+-p	1
+-p	10
+-p	100
+-q	1
+-q	10
+-q	100
+-r	1
+-r	10
+-r	100
+-s	1
+-s	10
+-s	100
+-t	1
+-t	10
+-t	100
+-u	1
+-u	10
+-u	100
+-v	1
+-v	10
+-v	100
+-w	1
+-w	10
+-w	100
+-x	1
+-x	10
+-x	100
+-y	1
+-y	10
+-y	100
+-z	1
+-z	10
+-z	100
+-a	1
+-a	10
+-a	100
+-a	1000
+-b	1
+-b	10
+-b	100
+-b	1000
+-c	1
+-c	10
+-c	100
+-c	1000
+-d	1
+-d	10
+-d	100
+-d	1000
+-e	1
+-e	10
+-e	100
+-e	1000
+-f	1
+-f	10
+-f	100
+-f	1000
+-g	1
+-g	10
+-g	100
+-g	1000
+-h	1
+-h	10
+-h	100
+-h	1000
+-i	1
+-i	10
+-i	100
+-i	1000
+-j	1
+-j	10
+-j	100
+-j	1000
+-k	1
+-k	10
+-k	100
+-k	1000
+-l	1
+-l	10
+-l	100
+-l	1000
+-m	1
+-m	10
+-m	100
+-m	1000
+-n	1
+-n	10
+-n	100
+-n	1000
+-o	1
+-o	10
+-o	100
+-o	1000
+-p	1
+-p	10
+-p	100
+-p	1000
+-q	1
+-q	10
+-q	100
+-q	1000
+-r	1
+-r	10
+-r	100
+-r	1000
+-s	1
+-s	10
+-s	100
+-s	1000
+-t	1
+-t	10
+-t	100
+-t	1000
+-u	1
+-u	10
+-u	100
+-u	1000
+-v	1
+-v	10
+-v	100
+-v	1000
+-w	1
+-w	10
+-w	100
+-w	1000
+-x	1
+-x	10
+-x	100
+-x	1000
+-y	1
+-y	10
+-y	100
+-y	1000
+-z	1
+-z	10
+-z	100
+-z	1000
+-a	1
+-a	10
+-a	100
+-a	1000
+-a	10000
+-b	1
+-b	10
+-b	100
+-b	1000
+-b	10000
+-c	1
+-c	10
+-c	100
+-c	1000
+-c	10000
+-d	1
+-d	10
+-d	100
+-d	1000
+-d	10000
+-e	1
+-e	10
+-e	100
+-e	1000
+-e	10000
+-f	1
+-f	10
+-f	100
+-f	1000
+-f	10000
+-g	1
+-g	10
+-g	100
+-g	1000
+-g	10000
+-h	1
+-h	10
+-h	100
+-h	1000
+-h	10000
+-i	1
+-i	10
+-i	100
+-i	1000
+-i	10000
+-j	1
+-j	10
+-j	100
+-j	1000
+-j	10000
+-k	1
+-k	10
+-k	100
+-k	1000
+-k	10000
+-l	1
+-l	10
+-l	100
+-l	1000
+-l	10000
+-m	1
+-m	10
+-m	100
+-m	1000
+-m	10000
+-n	1
+-n	10
+-n	100
+-n	1000
+-n	10000
+-o	1
+-o	10
+-o	100
+-o	1000
+-o	10000
+-p	1
+-p	10
+-p	100
+-p	1000
+-p	10000
+-q	1
+-q	10
+-q	100
+-q	1000
+-q	10000
+-r	1
+-r	10
+-r	100
+-r	1000
+-r	10000
+-s	1
+-s	10
+-s	100
+-s	1000
+-s	10000
+-t	1
+-t	10
+-t	100
+-t	1000
+-t	10000
+-u	1
+-u	10
+-u	100
+-u	1000
+-u	10000
+-v	1
+-v	10
+-v	100
+-v	1000
+-v	10000
+-w	1
+-w	10
+-w	100
+-w	1000
+-w	10000
+-x	1
+-x	10
+-x	100
+-x	1000
+-x	10000
+-y	1
+-y	10
+-y	100
+-y	1000
+-y	10000
+-z	1
+-z	10
+-z	100
+-z	1000
+-z	10000
+-a	1
+-a	10
+-a	100
+-a	1000
+-a	10000
+-a	100000
+-b	1
+-b	10
+-b	100
+-b	1000
+-b	10000
+-b	100000
+-c	1
+-c	10
+-c	100
+-c	1000
+-c	10000
+-c	100000
+-d	1
+-d	10
+-d	100
+-d	1000
+-d	10000
+-d	100000
+-e	1
+-e	10
+-e	100
+-e	1000
+-e	10000
+-e	100000
+-f	1
+-f	10
+-f	100
+-f	1000
+-f	10000
+-f	100000
+-g	1
+-g	10
+-g	100
+-g	1000
+-g	10000
+-g	100000
+-h	1
+-h	10
+-h	100
+-h	1000
+-h	10000
+-h	100000
+-i	1
+-i	10
+-i	100
+-i	1000
+-i	10000
+-i	100000
+-j	1
+-j	10
+-j	100
+-j	1000
+-j	10000
+-j	100000
+-k	1
+-k	10
+-k	100
+-k	1000
+-k	10000
+-k	100000
+-l	1
+-l	10
+-l	100
+-l	1000
+-l	10000
+-l	100000
+-m	1
+-m	10
+-m	100
+-m	1000
+-m	10000
+-m	100000
+-n	1
+-n	10
+-n	100
+-n	1000
+-n	10000
+-n	100000
+-o	1
+-o	10
+-o	100
+-o	1000
+-o	10000
+-o	100000
+-p	1
+-p	10
+-p	100
+-p	1000
+-p	10000
+-p	100000
+-q	1
+-q	10
+-q	100
+-q	1000
+-q	10000
+-q	100000
+-r	1
+-r	10
+-r	100
+-r	1000
+-r	10000
+-r	100000
+-s	1
+-s	10
+-s	100
+-s	1000
+-s	10000
+-s	100000
+-t	1
+-t	10
+-t	100
+-t	1000
+-t	10000
+-t	100000
+-u	1
+-u	10
+-u	100
+-u	1000
+-u	10000
+-u	100000
+-v	1
+-v	10
+-v	100
+-v	1000
+-v	10000
+-v	100000
+-w	1
+-w	10
+-w	100
+-w	1000
+-w	10000
+-w	100000
+-x	1
+-x	10
+-x	100
+-x	1000
+-x	10000
+-x	100000
+-y	1
+-y	10
+-y	100
+-y	1000
+-y	10000
+-y	100000
+-z	1
+-z	10
+-z	100
+-z	1000
+-z	10000
+-z	100000
+-a	1
+-a	10
+-a	100
+-a	1000
+-a	10000
+-a	100000
+-a	1000000
+-b	1
+-b	10
+-b	100
+-b	1000
+-b	10000
+-b	100000
+-b	1000000
+-c	1
+-c	10
+-c	100
+-c	1000
+-c	10000
+-c	100000
+-c	1000000
+-d	1
+-d	10
+-d	100
+-d	1000
+-d	10000
+-d	100000
+-d	1000000
+-e	1
+-e	10
+-e	100
+-e	1000
+-e	10000
+-e	100000
+-e	1000000
+-f	1
+-f	10
+-f	100
+-f	1000
+-f	10000
+-f	100000
+-f	1000000
+-g	1
+-g	10
+-g	100
+-g	1000
+-g	10000
+-g	100000
+-g	1000000
+-h	1
+-h	10
+-h	100
+-h	1000
+-h	10000
+-h	100000
+-h	1000000
+-i	1
+-i	10
+-i	100
+-i	1000
+-i	10000
+-i	100000
+-i	1000000
+-j	1
+-j	10
+-j	100
+-j	1000
+-j	10000
+-j	100000
+-j	1000000
+-k	1
+-k	10
+-k	100
+-k	1000
+-k	10000
+-k	100000
+-k	1000000
+-l	1
+-l	10
+-l	100
+-l	1000
+-l	10000
+-l	100000
+-l	1000000
+-m	1
+-m	10
+-m	100
+-m	1000
+-m	10000
+-m	100000
+-m	1000000
+-n	1
+-n	10
+-n	100
+-n	1000
+-n	10000
+-n	100000
+-n	1000000
+-o	1
+-o	10
+-o	100
+-o	1000
+-o	10000
+-o	100000
+-o	1000000
+-p	1
+-p	10
+-p	100
+-p	1000
+-p	10000
+-p	100000
+-p	1000000
+-q	1
+-q	10
+-q	100
+-q	1000
+-q	10000
+-q	100000
+-q	1000000
+-r	1
+-r	10
+-r	100
+-r	1000
+-r	10000
+-r	100000
+-r	1000000
+-s	1
+-s	10
+-s	100
+-s	1000
+-s	10000
+-s	100000
+-s	1000000
+-t	1
+-t	10
+-t	100
+-t	1000
+-t	10000
+-t	100000
+-t	1000000
+-u	1
+-u	10
+-u	100
+-u	1000
+-u	10000
+-u	100000
+-u	1000000
+-v	1
+-v	10
+-v	100
+-v	1000
+-v	10000
+-v	100000
+-v	1000000
+-w	1
+-w	10
+-w	100
+-w	1000
+-w	10000
+-w	100000
+-w	1000000
+-x	1
+-x	10
+-x	100
+-x	1000
+-x	10000
+-x	100000
+-x	1000000
+-y	1
+-y	10
+-y	100
+-y	1000
+-y	10000
+-y	100000
+-y	1000000
+-z	1
+-z	10
+-z	100
+-z	1000
+-z	10000
+-z	100000
+-z	1000000
+--- a/dbms/tests/queries/0_stateless/00039_inserts_through_http.sh
++++ /dev/null
+@@ -1,9 +0,0 @@
+-#!/bin/sh
+-
+-echo 'DROP TABLE IF EXISTS test.long_insert' | curl -sSg 'http://localhost:8123' -d @-
+-echo 'CREATE TABLE test.long_insert (a String) ENGINE = Memory' | curl -sSg 'http://localhost:8123' -d @-
+-for string_size in 1 10 100 1000 10000 100000 1000000; do
+-    # Если не указать LC_ALL=C, то Perl будет ругаться на некоторых плохо настроенных системах.
+-    LC_ALL=C perl -we 'for my $letter ("a" .. "z") { print(($letter x '$string_size') . "\n") }' | curl -sSg 'http://localhost:8123/?query=INSERT+INTO+test.long_insert+FORMAT+TabSeparated' --data-binary @-
+-    echo 'SELECT substring(a, 1, 1) AS c, length(a) AS l FROM test.long_insert ORDER BY c, l' | curl -sSg 'http://localhost:8123' -d @-
+-done
