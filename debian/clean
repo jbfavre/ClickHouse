@@ -1,4 +1,3 @@
-contrib/googletest/
 contrib/libdouble-conversion/
 contrib/libboost/
 contrib/libpoco/

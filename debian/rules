@@ -5,59 +5,49 @@ include /usr/share/dpkg/pkg-info.mk
 export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
 
 # Uncomment this to turn on verbose mode.
-export DH_VERBOSE=1
+#export DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
-CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
-CFLAGS:=$(shell dpkg-buildflags --get CFLAGS) $(CPPFLAGS)
-CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS) $(CPPFLAGS)
-LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+#CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
+#CFLAGS:=$(shell dpkg-buildflags --get CFLAGS) $(CPPFLAGS)
+#CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS) $(CPPFLAGS)
+#LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 
-BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
+#BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
+
+CMAKE_FLAGS = -DUNBUNDLED=1 -DUSE_STATIC_LIBRARIES=0 -DUSE_INTERNAL_COMPILER=0
+ifndef DH_VERBOSE
+    CMAKE_FLAGS += -DCMAKE_VERBOSE_MAKEFILE=0
+endif
+
+BUILDDIR = build
 
 %:
-	dh $@ --parallel --buildsystem=cmake --with=systemd
+	dh $@ --parallel --buildsystem=cmake --with=systemd --builddirectory=$(BUILDDIR)
 
 override_dh_auto_configure:
+	dh_auto_configure -- $(CMAKE_FLAGS)
 
 override_dh_auto_test:
 	./debian/tests_wrapper.sh
 
-override_dh_auto_build:
-	# Remove some embedded libs since we use system ones
-	# quilt patch doesn't work here becasue of some zip files in directory tree
-	dh_testdir
-	mkdir -p build && cd build && cmake .. -DUNBUNDLED=1 -DUSE_STATIC_LIBRARIES=0 -DINTERNAL_COMPILER_SAME=1
-	for target in ${BUILD_TARGETS}; \
-	do \
-		$(MAKE) -C build $$target; \
-	done
-	touch $@
-
-override_dh_auto_install:
-	# Can't use dh_auto_install for now
-	# build libboost test suite which fails
-	# will wait for the ability to use system libs instead of contrib ones
-	#dh_auto_install
-	cd build && \
-	for target in ${BUILD_TARGETS}; \
-	do \
-		DESTDIR=../debian/tmp cmake -DCOMPONENT=$$target -P cmake_install.cmake; \
-	done
-	# Manually install /etc/security/limits.d/clickhouse.conf
-	mkdir -p debian/tmp/etc/security/limits.d
-	cp tools/etc/security/limits.d/clickhouse.conf debian/tmp/etc/security/limits.d/
-	mkdir -p debian/tmp/usr/share/clickhouse/headers;
+override_dh_install:
+	# Install limits file
+	cp debian/clickhouse.limits debian/tmp/etc/security/limits.d/clickhouse.conf
+	# Moving headers
 	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
-	dh_install --sourcedir=debian/tmp
 	# Remove upstream init script
 	rm -f debian/tmp/etc/init.d/clickhouse-server
-	# Create data & log directories
-	# Should be done by dh_auto_install but fails (see above)
-	mkdir -p debian/tmp/var/lib/clickhouse
-	mkdir -p debian/tmp/var/log/clickhouse
 	# Update upstream config file with Debian paths
 	sed -i 's/<path>.*<\/path>/<path>\/var\/lib\/clickhouse<\/path>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<tmp_path>.*<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<log>.*<\/log>/<log>\/var\/log\/clickhouse\/clickhouse-server.log<\/log>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<errorlog>.*<\/errorlog>/<errorlog>\/var\/log\/clickhouse\/clickhouse-server.err<\/errorlog>/' debian/tmp/etc/clickhouse-server/config.xml
+	dh_install
+	dh_missing --list-missing
+
+override_dh_installdirs:
+	# Create directory for limits file
+	mkdir -p debian/tmp/etc/security/limits.d
+	# Create directory for headers files
+	mkdir -p debian/tmp/usr/share/clickhouse/headers;
