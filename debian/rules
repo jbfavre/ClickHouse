@@ -8,13 +8,6 @@ export LIBCOMMON_REVISION=$(DEB_VERSION_UPSTREAM)
 #export DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
-#CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
-#CFLAGS:=$(shell dpkg-buildflags --get CFLAGS) $(CPPFLAGS)
-#CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS) $(CPPFLAGS)
-#LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
-
-#BUILD_TARGETS=clickhouse clickhouse-client clickhouse-server clickhouse-compressor
-
 CMAKE_FLAGS = -DUNBUNDLED=1 -DUSE_STATIC_LIBRARIES=0 -DUSE_INTERNAL_COMPILER=0
 ifndef DH_VERBOSE
     CMAKE_FLAGS += -DCMAKE_VERBOSE_MAKEFILE=0
@@ -33,9 +26,11 @@ override_dh_auto_test:
 
 override_dh_install:
 	# Install limits file
+	mkdir -p debian/tmp/etc/security/limits.d/
 	cp debian/clickhouse.limits debian/tmp/etc/security/limits.d/clickhouse.conf
 	# Moving headers
-	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers;
+	mkdir -p debian/tmp/usr/share/clickhouse/headers
+	./copy_headers.sh . debian/tmp/usr/share/clickhouse/headers
 	# Remove upstream init script
 	rm -f debian/tmp/etc/init.d/clickhouse-server
 	# Update upstream config file with Debian paths
@@ -45,9 +40,3 @@ override_dh_install:
 	sed -i 's/<errorlog>.*<\/errorlog>/<errorlog>\/var\/log\/clickhouse\/clickhouse-server.err<\/errorlog>/' debian/tmp/etc/clickhouse-server/config.xml
 	dh_install
 	dh_missing --list-missing
-
-override_dh_installdirs:
-	# Create directory for limits file
-	mkdir -p debian/tmp/etc/security/limits.d
-	# Create directory for headers files
-	mkdir -p debian/tmp/usr/share/clickhouse/headers;

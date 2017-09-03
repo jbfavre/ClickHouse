@@ -1,0 +1,5 @@
+<yandex>
+    <clickhouse_remote_servers>/etc/clickhouse-server/remote_servers.xml</clickhouse_remote_servers>
+    <clickhouse_compression>/etc/clickhouse-server/conf.d/compression.xml</clickhouse_compression>
+    <!-- zookeeper-servers>/etc/clickhouse-server/conf.d/zookeeper.xml</zookeeper-servers -->
+</yandex>
