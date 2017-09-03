@@ -1,0 +1,2 @@
+/usr/bin/clickhouse /usr/bin/clickhouse-benchmark
+/usr/bin/clickhouse /usr/bin/clickhouse-performance-test
