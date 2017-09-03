@@ -23,10 +23,10 @@ then
   then
     dpkg-statoverride --remove ${LOGDIR}
   fi
-  echo "Removing data dir ..."
-  rm -rf ${DATADIR}
-  echo "Removing log dir ..."
-  rm -rf ${LOGDIR}
+  #echo "Removing data dir ..."
+  #rm -rf ${DATADIR}
+  #echo "Removing log dir ..."
+  #rm -rf ${LOGDIR}
   echo "Removing preprocessed config files ..."
   rm -f ${CONFDIR}/*-preprocessed.xml
 

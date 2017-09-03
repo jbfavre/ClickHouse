@@ -15,17 +15,27 @@ if [ "$1" = configure ]; then
   fi
 
   echo "Fixing permissions ..."
+  # Clickhouse preprocess config files and store them in /etc/clickhouse-server
+  # Thus, it needs to have write access to the directory
   if ! dpkg-statoverride --list ${CONFDIR} >/dev/null 2>&1
   then
     dpkg-statoverride --update --add ${USER} ${GROUP} 750 ${CONFDIR}
   fi
+  # /etc/clickhouse-server/users.xml includes password, which can be in clear.
+  # We need to restrict access to it
+  if ! dpkg-statoverride --list ${CONFDIR}/users.xml >/dev/null 2>&1
+  then
+    dpkg-statoverride --update --add ${USER} ${GROUP} 640 ${CONFDIR}/users.xml
+  fi
+  # Restrict access to DATA dir
   if ! dpkg-statoverride --list ${DATADIR} >/dev/null 2>&1
   then
     dpkg-statoverride --update --add ${USER} ${GROUP} 700 ${DATADIR}
   fi
+  # Restrict access to LOG dir, and allow clickhouse user to write
   if ! dpkg-statoverride --list ${LOGDIR} >/dev/null 2>&1
   then
-    dpkg-statoverride --update --add ${USER} ${GROUP} 755 ${LOGDIR}
+    dpkg-statoverride --update --add ${USER} adm 750 ${LOGDIR}
   fi
 
 fi

@@ -1,2 +1,6 @@
-etc/clickhouse-server/config.xml etc/clickhouse-server
-etc/clickhouse-server/users.xml etc/clickhouse-server
+/etc/clickhouse-server/config.xml
+/etc/clickhouse-server/users.xml
+debian/additional/includes.xml /etc/clickhouse-server/
+debian/additional/compression.xml /etc/clickhouse-server/conf.d/
+debian/additional/remote_servers.xml /etc/clickhouse-server/conf.d/
+debian/additional/zookeeper.xml /etc/clickhouse-server/conf.d/

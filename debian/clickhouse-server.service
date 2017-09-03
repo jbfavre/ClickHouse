@@ -3,12 +3,12 @@ Description=Clickhouse database
 
 [Service]
 User=clickhouse
-ExecStart=/usr/bin/clickhouse-server --daemon --pid-file="/var/run/clickhouse/clickhouse-server.pid" --config-file="/etc/clickhouse-server/config.xml"
-ExecStop=kill -TERM $MAINPID
-StandardOutput=journal
-StandardError=journal
-RestartSec=1
+PIDFile=/var/run/clickhouse/clickhouse-server.pid
+ExecStart=/usr/bin/clickhouse-server --pid-file=/var/run/clickhouse/clickhouse-server.pid --config-file=/etc/clickhouse-server/config.xml
+ExecStop=/bin/kill -TERM $MAINPID
+KillMode=process
 Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target

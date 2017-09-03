@@ -1,2 +1,3 @@
 /var/lib/clickhouse
 /var/log/clickhouse
+/etc/clickhouse-server/conf.d
