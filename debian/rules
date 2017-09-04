@@ -38,5 +38,4 @@ override_dh_install:
 	sed -i 's/<tmp_path>.*<\/tmp_path>/<tmp_path>\/var\/lib\/clickhouse\/tmp<\/tmp_path>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<log>.*<\/log>/<log>\/var\/log\/clickhouse\/clickhouse-server.log<\/log>/' debian/tmp/etc/clickhouse-server/config.xml
 	sed -i 's/<errorlog>.*<\/errorlog>/<errorlog>\/var\/log\/clickhouse\/clickhouse-server.err<\/errorlog>/' debian/tmp/etc/clickhouse-server/config.xml
-	dh_install
-	dh_missing --list-missing
+	dh_install --list-missing
