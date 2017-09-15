@@ -1,12 +1,3 @@
-contrib/libdouble-conversion/
-contrib/libboost/
-contrib/libpoco/
-contrib/liblz4/
-contrib/libre2/
-contrib/libsparsehash/
-contrib/libtcmalloc/
-contrib/libzookeeper/
-contrib/libzstd/
 obj-x86_64-linux-gnu/
 override_dh_auto_build
 dbms/tests/queries/0_stateless/*.std*
