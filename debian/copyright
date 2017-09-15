@@ -2,6 +2,20 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Yandex LLC
 Upstream-Contact: Alexey Milovidov <clickhouse-feedback@yandex-team.com>
 Source: https://github.com/yandex/clickhouse
+Files-Excluded:
+    contrib/libdouble-conversion
+    contrib/libboost
+    contrib/libpoco
+    contrib/liblz4
+    contrib/libre2
+    contrib/libsparsehash
+    contrib/libtcmalloc
+    contrib/libzookeeper
+    contrib/libzstd
+Comment:
+    The upstream repository provides libraries which are also available
+    in Debian. Because we'll use libraries packaged in Debian, we don't
+    need embedded ones.
 
 Files: *
 Copyright: 2016 YANDEX LLC
