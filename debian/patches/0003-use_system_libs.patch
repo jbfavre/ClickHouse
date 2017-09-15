@@ -9,14 +9,15 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/copy_headers.sh
 +++ b/copy_headers.sh
-@@ -30,18 +30,9 @@ for src_file in $($CLANG -M -xc++ -std=g
-     $(cat "$SOURCE_PATH/build/include_directories.txt") \
+@@ -31,19 +31,10 @@ for src_file in $($CLANG -M -xc++ -std=g
+     "$SOURCE_PATH/build/dbms/src/Common/config_version.h" \
      "$SOURCE_PATH/dbms/src/Interpreters/SpecializedAggregator.h" |
      tr -d '\\' |
 -    sed -r -e 's/^\w+\.o://');
 +    sed -r -e 's/^\w+\.o://'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
  do
      dst_file=$src_file;
+     dst_file=$(echo $dst_file | sed -r -e 's/build\///')    # for simplicity reasons, will put generated headers near the rest.
      mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
      cp "$src_file" "$DST/$dst_file";
  done
@@ -56,7 +57,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  #  DOUBLE_CONVERSION_INCLUDE_DIR       The location of double-conversion headers
  
  find_path(DOUBLE_CONVERSION_ROOT_DIR
--    NAMES include/double-conversion.h
+-    NAMES include/double-conversion/double-conversion.h
 +    NAMES double-conversion/double-conversion.h
  )
  
@@ -64,7 +65,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 @@ -28,7 +28,7 @@ find_library(DOUBLE_CONVERSION_LIBRARIES
  
  find_path(DOUBLE_CONVERSION_INCLUDE_DIR
-     NAMES double-conversion.h
+     NAMES double-conversion/double-conversion.h
 -    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/include ${DOUBLE_CONVERSION_INCLUDE_PATHS}
 +    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/double-conversion
  )
