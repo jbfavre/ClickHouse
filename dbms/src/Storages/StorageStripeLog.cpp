@@ -72,7 +72,7 @@ protected:
 
             data_in.emplace(
                 storage.full_path() + "data.bin", 0, 0,
-                std::min(max_read_buffer_size, Poco::File(storage.full_path() + "data.bin").getSize()));
+                std::min(static_cast<Poco::File::FileSize>(max_read_buffer_size), Poco::File(storage.full_path() + "data.bin").getSize()));
 
             block_in.emplace(*data_in, 0, true, index_begin, index_end);
         }
@@ -114,7 +114,7 @@ private:
 class StripeLogBlockOutputStream : public IBlockOutputStream
 {
 public:
-    StripeLogBlockOutputStream(StorageStripeLog & storage_)
+    explicit StripeLogBlockOutputStream(StorageStripeLog & storage_)
         : storage(storage_), lock(storage.rwlock),
         data_out_compressed(storage.full_path() + "data.bin", DBMS_DEFAULT_BUFFER_SIZE, O_WRONLY | O_APPEND | O_CREAT),
         data_out(data_out_compressed, CompressionMethod::LZ4, storage.max_compress_block_size),

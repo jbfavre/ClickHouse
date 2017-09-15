@@ -111,7 +111,7 @@ private:
     struct Stream
     {
         Stream(const std::string & data_path, size_t offset, size_t max_read_buffer_size)
-            : plain(data_path, std::min(max_read_buffer_size, Poco::File(data_path).getSize())),
+            : plain(data_path, std::min(static_cast<Poco::File::FileSize>(max_read_buffer_size), Poco::File(data_path).getSize())),
             compressed(plain)
         {
             if (offset)
@@ -133,7 +133,7 @@ private:
 class LogBlockOutputStream : public IBlockOutputStream
 {
 public:
-    LogBlockOutputStream(StorageLog & storage_)
+    explicit LogBlockOutputStream(StorageLog & storage_)
         : storage(storage_),
         lock(storage.rwlock),
         marks_stream(storage.marks_file.path(), 4096, O_APPEND | O_CREAT | O_WRONLY),
@@ -185,7 +185,7 @@ private:
         }
     };
 
-    using MarksForColumns = std::vector<std::pair<size_t, Mark> >;
+    using MarksForColumns = std::vector<std::pair<size_t, Mark>>;
 
     using FileStreams = std::map<std::string, std::unique_ptr<Stream>>;
     FileStreams streams;
