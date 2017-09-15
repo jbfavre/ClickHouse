@@ -191,6 +191,7 @@ config-9001.xml
 *-preprocessed.xml
 
 core
+!core/
 vgcore*
 
 *.deb
@@ -199,7 +200,6 @@ vgcore*
 *.changes
 build-stamp
 configure-stamp
-debian/changelog
 debian/*.debhelper.log
 debian/*.debhelper
 debian/*.substvars

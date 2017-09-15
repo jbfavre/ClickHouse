@@ -83,7 +83,7 @@ void NO_INLINE Set::insertFromBlockImplCase(
         /// Obtain a key to insert to the set
         typename Method::Key key = state.getKey(key_columns, keys_size, i, key_sizes);
 
-        typename Method::Data::iterator it = method.data.find(key);
+        typename Method::Data::iterator it;
         bool inserted;
         method.data.emplace(key, it, inserted);
 
@@ -181,18 +181,22 @@ bool Set::insertFromBlock(const Block & block, bool create_ordered_set)
 
     if (!checkSetSizeLimits())
     {
-        if (overflow_mode == OverflowMode::THROW)
-            throw Exception("IN-set size exceeded."
-                " Rows: " + toString(data.getTotalRowCount()) +
-                ", limit: " + toString(max_rows) +
-                ". Bytes: " + toString(data.getTotalByteCount()) +
-                ", limit: " + toString(max_bytes) + ".",
-                ErrorCodes::SET_SIZE_LIMIT_EXCEEDED);
+        switch (overflow_mode)
+        {
+            case OverflowMode::THROW:
+                throw Exception("IN-set size exceeded."
+                    " Rows: " + toString(data.getTotalRowCount()) +
+                    ", limit: " + toString(max_rows) +
+                    ". Bytes: " + toString(data.getTotalByteCount()) +
+                    ", limit: " + toString(max_bytes) + ".",
+                    ErrorCodes::SET_SIZE_LIMIT_EXCEEDED);
 
-        if (overflow_mode == OverflowMode::BREAK)
-            return false;
+            case OverflowMode::BREAK:
+                return false;
 
-        throw Exception("Logical error: unknown overflow mode", ErrorCodes::LOGICAL_ERROR);
+            default:
+                throw Exception("Logical error: unknown overflow mode", ErrorCodes::LOGICAL_ERROR);
+        }
     }
 
     return true;

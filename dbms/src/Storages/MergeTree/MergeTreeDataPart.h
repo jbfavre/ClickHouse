@@ -1,8 +1,9 @@
 #pragma once
 
-#include <Core/Field.h>
+#include <Core/Row.h>
+#include <Core/Block.h>
 #include <Core/NamesAndTypes.h>
-#include <Storages/MergeTree/ActiveDataPartSet.h>
+#include <Storages/MergeTree/MergeTreePartInfo.h>
 #include <Columns/IColumn.h>
 #include <shared_mutex>
 
@@ -79,16 +80,39 @@ struct MergeTreeDataPartChecksums
 };
 
 
+/// Index that for each part stores min and max values of a set of columns. This allows quickly excluding
+/// parts based on conditions on these columns imposed by a query.
+/// Currently this index is built using only columns required by partition expression, but in principle it
+/// can be built using any set of columns.
+struct MinMaxIndex
+{
+    void update(const Block & block, const Names & column_names);
+    void merge(const MinMaxIndex & other);
+
+    bool initialized = false;
+    Row min_column_values;
+    Row max_column_values;
+};
+
+
 class MergeTreeData;
 
 
 /// Description of the data part.
-struct MergeTreeDataPart : public ActiveDataPartSet::Part
+struct MergeTreeDataPart
 {
     using Checksums = MergeTreeDataPartChecksums;
     using Checksum = MergeTreeDataPartChecksums::Checksum;
 
-    MergeTreeDataPart(MergeTreeData & storage_) : storage(storage_) {}
+    MergeTreeDataPart(MergeTreeData & storage_, const String & name_)
+        : storage(storage_), name(name_), info(MergeTreePartInfo::fromPartName(name_))
+    {
+    }
+
+    MergeTreeDataPart(MergeTreeData & storage_, const String & name_, const MergeTreePartInfo & info_)
+        : storage(storage_), name(name_), info(info_)
+    {
+    }
 
     /// Returns checksum of column's binary file.
     const Checksum * tryGetBinChecksum(const String & name) const;
@@ -110,8 +134,18 @@ struct MergeTreeDataPart : public ActiveDataPartSet::Part
     /// Returns part->name with prefixes like 'tmp_<name>'
     String getNameWithPrefix() const;
 
+    bool contains(const MergeTreeDataPart & other) const { return info.contains(other.info); }
+
+    /// If the partition key includes date column (a common case), these functions will return min and max values for this column.
+    DayNum_t getMinDate() const;
+    DayNum_t getMaxDate() const;
 
     MergeTreeData & storage;
+
+    String name;
+    MergeTreePartInfo info;
+
+    Row partition;
 
     /// A directory path (realative to storage's path) where part data is actually stored
     /// Examples: 'detached/tmp_fetch_<name>', 'tmp_<name>', '<name>'
@@ -135,6 +169,8 @@ struct MergeTreeDataPart : public ActiveDataPartSet::Part
     /// Note that marks (also correspond to primary key) is not always in RAM, but cached. See MarkCache.h.
     using Index = Columns;
     Index index;
+
+    MinMaxIndex minmax_idx;
 
     Checksums checksums;
 
@@ -172,19 +208,12 @@ struct MergeTreeDataPart : public ActiveDataPartSet::Part
     /// Renames a part by appending a prefix to the name. To_detached - also moved to the detached directory.
     void renameAddPrefix(bool to_detached, const String & prefix) const;
 
-    /// Loads index file. Also calculates this->size if size=0
-    void loadIndex();
-
-    /// If checksums.txt exists, reads files' checksums (and sizes) from it
-    void loadChecksums(bool require);
-
     /// Populates columns_to_size map (compressed size).
     void accumulateColumnSizes(ColumnToSize & column_to_size) const;
 
-    /// Reads columns names and types from columns.txt
-    void loadColumns(bool require);
-
-    void checkNotBroken(bool require_part_metadata);
+    /// Initialize columns (from columns.txt if exists, or create from column files if not).
+    /// Load checksums from checksums.txt if exists. Load index if required.
+    void loadColumnsChecksumsIndexes(bool require_columns_checksums, bool check_consistency);
 
     /// Checks that .bin and .mrk files exist
     bool hasColumnFiles(const String & column) const;
@@ -192,6 +221,20 @@ struct MergeTreeDataPart : public ActiveDataPartSet::Part
     /// For data in RAM ('index')
     size_t getIndexSizeInBytes() const;
     size_t getIndexSizeInAllocatedBytes() const;
+
+private:
+    /// Reads columns names and types from columns.txt
+    void loadColumns(bool require);
+
+    /// If checksums.txt exists, reads files' checksums (and sizes) from it
+    void loadChecksums(bool require);
+
+    /// Loads index file. Also calculates this->size if size=0
+    void loadIndex();
+
+    void loadPartitionAndMinMaxIndex();
+
+    void checkConsistency(bool require_part_metadata);
 };
 
 }
