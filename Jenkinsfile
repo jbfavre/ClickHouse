@@ -63,33 +63,33 @@ stage('Build source package')
 // repositories for dependencies
 stage name: 'Build binary packages'
 
-//    parallel architecture_i386: {
-//
-//        node('i386'){
-//            def architecture='i386'
-//            deleteDir()
-//            unstash 'source'
-//            withEnv([
-//                "release=${release}",
-//                "branch=${branch}",
-//                "tag=${tag}",
-//                "distribution=${distribution}",
-//                "architecture=${architecture}",
-//                "BUILD_ONLY=true",
-//                "SUDO_CMD=sudo",
-//                "DEB_BUILD_OPTIONS=${DEB_BUILD_OPTIONS}",
-//                "ADT=${ADT}",
-//                "REPOSITORY_EXTRA=${REPOSITORY_EXTRA}",
-//                "REPOSITORY_EXTRA_KEYS=${REPOSITORY_EXTRA_KEYS}"
-//            ]) {
-//                sh '/usr/bin/build-and-provide-package'
-//            }
-//            stash name: 'binaries_i386',
-//                includes: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.buildinfo,*.changes,lintian.txt,piuparts*',
-//                useDefaultExcludes: false
-//        }
-//
-//    }, architecture_amd64: {
+    parallel architecture_i386: {
+
+        node('i386'){
+            def architecture='i386'
+            deleteDir()
+            unstash 'source'
+            withEnv([
+                "release=${release}",
+                "branch=${branch}",
+                "tag=${tag}",
+                "distribution=${distribution}",
+                "architecture=${architecture}",
+                "BUILD_ONLY=true",
+                "SUDO_CMD=sudo",
+                "DEB_BUILD_OPTIONS=${DEB_BUILD_OPTIONS}",
+                "ADT=${ADT}",
+                "REPOSITORY_EXTRA=${REPOSITORY_EXTRA}",
+                "REPOSITORY_EXTRA_KEYS=${REPOSITORY_EXTRA_KEYS}"
+            ]) {
+                sh '/usr/bin/build-and-provide-package'
+            }
+            stash name: 'binaries_i386',
+                includes: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.buildinfo,*.changes,lintian.txt,piuparts*',
+                useDefaultExcludes: false
+        }
+
+    }, architecture_amd64: {
 
         node('amd64'){
             def architecture='amd64'
@@ -114,7 +114,7 @@ stage name: 'Build binary packages'
                 includes: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.buildinfo,*.changes,lintian.txt,piuparts*',
                 useDefaultExcludes: false
         }
-//    }
+    }
 
 // Add source & binaries packages to APT repository
 // Must be done on master (my setup)
@@ -126,7 +126,7 @@ stage('Run static tests')
             // Clean Workspace
             deleteDir()
             // Unstash binaries artifacts
-//            unstash 'binaries_i386'
+            unstash 'binaries_i386'
             unstash 'binaries_amd64'
 
             withEnv([
@@ -150,7 +150,7 @@ stage('Run static tests')
             // Clean Workspace
             deleteDir()
             // Unstash binaries artifacts
-//            unstash 'binaries_i386'
+            unstash 'binaries_i386'
             unstash 'binaries_amd64'
 
             withEnv([
@@ -179,7 +179,7 @@ stage('Add packages to repository')
         // Unstash binaries artifacts
         unstash 'source'
         dir('binaries') {
-//            unstash 'binaries_i386'
+            unstash 'binaries_i386'
             unstash 'binaries_amd64'
         }
 
@@ -206,7 +206,7 @@ stage('Add packages to repository')
 
 stage('Archive artifacts')
     node('master'){
-//        unstash 'binaries_i386'
+        unstash 'binaries_i386'
         unstash 'binaries_amd64'
         unstash 'piuparts'
         unstash 'lintian'
