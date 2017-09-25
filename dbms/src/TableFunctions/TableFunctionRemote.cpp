@@ -219,7 +219,7 @@ StoragePtr TableFunctionRemote::execute(const ASTPtr & ast_function, const Conte
     description = getStringLiteral(*args[arg_num], "Hosts pattern");
     ++arg_num;
 
-    args[arg_num] = evaluateConstantExpressionOrIdentidierAsLiteral(args[arg_num], context);
+    args[arg_num] = evaluateConstantExpressionOrIdentifierAsLiteral(args[arg_num], context);
     remote_database = static_cast<const ASTLiteral &>(*args[arg_num]).value.safeGet<String>();
     ++arg_num;
 
@@ -235,7 +235,7 @@ StoragePtr TableFunctionRemote::execute(const ASTPtr & ast_function, const Conte
         if (arg_num >= args.size())
             throw Exception(err, ErrorCodes::NUMBER_OF_ARGUMENTS_DOESNT_MATCH);
 
-        args[arg_num] = evaluateConstantExpressionOrIdentidierAsLiteral(args[arg_num], context);
+        args[arg_num] = evaluateConstantExpressionOrIdentifierAsLiteral(args[arg_num], context);
         remote_table = static_cast<const ASTLiteral &>(*args[arg_num]).value.safeGet<String>();
         ++arg_num;
     }
@@ -274,7 +274,7 @@ StoragePtr TableFunctionRemote::execute(const ASTPtr & ast_function, const Conte
     if (names.empty())
         throw Exception("Shard list is empty after parsing first argument", ErrorCodes::BAD_ARGUMENTS);
 
-    auto cluster = std::make_shared<Cluster>(context.getSettings(), names, username, password);
+    auto cluster = std::make_shared<Cluster>(context.getSettings(), names, username, password, context.getTCPPort());
 
     auto res = StorageDistributed::createWithOwnCluster(
         getName(),

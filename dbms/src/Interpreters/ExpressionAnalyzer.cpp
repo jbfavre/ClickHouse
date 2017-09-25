@@ -153,7 +153,7 @@ void removeDuplicateColumns(NamesAndTypesList & columns)
 ExpressionAnalyzer::ExpressionAnalyzer(
     const ASTPtr & ast_,
     const Context & context_,
-    StoragePtr storage_,
+    const StoragePtr & storage_,
     const NamesAndTypesList & columns_,
     size_t subquery_depth_,
     bool do_global_)
@@ -943,12 +943,8 @@ void ExpressionAnalyzer::addASTAliases(ASTPtr & ast, int ignore_levels)
             ++subquery_index;
         }
 
-        std::cerr << ast->getColumnName() << "\n";
-
         ast->setAlias(alias);
         aliases[alias] = ast;
-
-        std::cerr << ast->getAliasOrColumnName() << "\n";
     }
 }
 
@@ -1009,8 +1005,10 @@ void ExpressionAnalyzer::normalizeTreeImpl(
     /// rewrite rules that act when you go from top to bottom.
     bool replaced = false;
 
-    ASTFunction * func_node = typeid_cast<ASTFunction *>(ast.get());
-    if (func_node)
+    ASTIdentifier * identifier_node = nullptr;
+    ASTFunction * func_node = nullptr;
+
+    if ((func_node = typeid_cast<ASTFunction *>(ast.get())))
     {
         /** Is there a column in the table whose name fully matches the function entry?
           * For example, in the table there is a column "domain(URL)", and we requested domain(URL).
@@ -1048,13 +1046,13 @@ void ExpressionAnalyzer::normalizeTreeImpl(
             }
         }
     }
-    else if (ASTIdentifier * node = typeid_cast<ASTIdentifier *>(ast.get()))
+    else if ((identifier_node = typeid_cast<ASTIdentifier *>(ast.get())))
     {
-        if (node->kind == ASTIdentifier::Column)
+        if (identifier_node->kind == ASTIdentifier::Column)
         {
             /// If it is an alias, but not a parent alias (for constructs like "SELECT column + 1 AS column").
-            Aliases::const_iterator jt = aliases.find(node->name);
-            if (jt != aliases.end() && current_alias != node->name)
+            Aliases::const_iterator jt = aliases.find(identifier_node->name);
+            if (jt != aliases.end() && current_alias != identifier_node->name)
             {
                 /// Let's replace it with the corresponding tree node.
                 if (current_asts.count(jt->second.get()))
@@ -1116,7 +1114,7 @@ void ExpressionAnalyzer::normalizeTreeImpl(
         return;
     }
 
-    /// Recurring calls. Don't go into subqueries.
+    /// Recurring calls. Don't go into subqueries. Don't go into components of compound identifiers.
     /// We also do not go to the left argument of lambda expressions, so as not to replace the formal parameters
     ///  on aliases in expressions of the form 123 AS x, arrayMap(x -> 1, [2]).
 
@@ -1133,6 +1131,9 @@ void ExpressionAnalyzer::normalizeTreeImpl(
 
             normalizeTreeImpl(child, finished_asts, current_asts, current_alias, level + 1);
         }
+    }
+    else if (identifier_node)
+    {
     }
     else
     {
@@ -1852,7 +1853,7 @@ struct ExpressionAnalyzer::ScopeStack
 };
 
 
-void ExpressionAnalyzer::getRootActions(ASTPtr ast, bool no_subqueries, bool only_consts, ExpressionActionsPtr & actions)
+void ExpressionAnalyzer::getRootActions(const ASTPtr & ast, bool no_subqueries, bool only_consts, ExpressionActionsPtr & actions)
 {
     ScopeStack scopes(actions, settings);
     getActionsImpl(ast, no_subqueries, only_consts, scopes);
@@ -1918,7 +1919,7 @@ void ExpressionAnalyzer::getArrayJoinedColumns()
 
 
 /// Fills the array_join_result_to_source: on which columns-arrays to replicate, and how to call them after that.
-void ExpressionAnalyzer::getArrayJoinedColumnsImpl(ASTPtr ast)
+void ExpressionAnalyzer::getArrayJoinedColumnsImpl(const ASTPtr & ast)
 {
     if (typeid_cast<ASTTablesInSelectQuery *>(ast.get()))
         return;
@@ -1972,7 +1973,7 @@ void ExpressionAnalyzer::getArrayJoinedColumnsImpl(ASTPtr ast)
 }
 
 
-void ExpressionAnalyzer::getActionsImpl(ASTPtr ast, bool no_subqueries, bool only_consts, ScopeStack & actions_stack)
+void ExpressionAnalyzer::getActionsImpl(const ASTPtr & ast, bool no_subqueries, bool only_consts, ScopeStack & actions_stack)
 {
     /// If the result of the calculation already exists in the block.
     if ((typeid_cast<ASTFunction *>(ast.get()) || typeid_cast<ASTLiteral *>(ast.get()))
@@ -2614,7 +2615,7 @@ Block ExpressionAnalyzer::getSelectSampleBlock()
     return temp_actions->getSampleBlock();
 }
 
-void ExpressionAnalyzer::getActionsBeforeAggregation(ASTPtr ast, ExpressionActionsPtr & actions, bool no_subqueries)
+void ExpressionAnalyzer::getActionsBeforeAggregation(const ASTPtr & ast, ExpressionActionsPtr & actions, bool no_subqueries)
 {
     ASTFunction * node = typeid_cast<ASTFunction *>(ast.get());
 
@@ -2736,10 +2737,6 @@ void ExpressionAnalyzer::collectUsedColumns()
             columns_added_by_join.erase(it++);
     }
 
-/*    for (const auto & name_type : columns_added_by_join)
-        std::cerr << "JOINed column (required, not key): " << name_type.name << std::endl;
-    std::cerr << std::endl;*/
-
     /// Insert the columns required for the ARRAY JOIN calculation into the required columns list.
     NameSet array_join_sources;
     for (const auto & result_source : array_join_result_to_source)
@@ -2835,15 +2832,6 @@ void ExpressionAnalyzer::collectJoinedColumns(NameSet & joined_columns, NamesAnd
             joined_columns_name_type.emplace_back(col.name, col.type);
         }
     }
-
-/*    for (const auto & name : join_key_names_left)
-        std::cerr << "JOIN key (left): " << name << std::endl;
-    for (const auto & name : join_key_names_right)
-        std::cerr << "JOIN key (right): " << name << std::endl;
-    std::cerr << std::endl;
-    for (const auto & name : joined_columns)
-        std::cerr << "JOINed column: " << name << std::endl;
-    std::cerr << std::endl;*/
 }
 
 
@@ -2860,7 +2848,7 @@ Names ExpressionAnalyzer::getRequiredColumns()
 }
 
 
-void ExpressionAnalyzer::getRequiredColumnsImpl(ASTPtr ast,
+void ExpressionAnalyzer::getRequiredColumnsImpl(const ASTPtr & ast,
     NameSet & required_columns, NameSet & ignored_names,
     const NameSet & available_joined_columns, NameSet & required_joined_columns)
 {

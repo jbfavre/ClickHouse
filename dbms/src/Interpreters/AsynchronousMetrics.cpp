@@ -126,6 +126,8 @@ void AsynchronousMetrics::update()
         }
     }
 
+    set("Uptime", context.getUptimeSeconds());
+
     {
         auto databases = context.getDatabases();
 
@@ -144,7 +146,7 @@ void AsynchronousMetrics::update()
 
         for (const auto & db : databases)
         {
-            for (auto iterator = db.second->getIterator(); iterator->isValid(); iterator->next())
+            for (auto iterator = db.second->getIterator(context); iterator->isValid(); iterator->next())
             {
                 auto & table = iterator->table();
                 StorageMergeTree * table_merge_tree = typeid_cast<StorageMergeTree *>(table.get());
@@ -174,12 +176,12 @@ void AsynchronousMetrics::update()
                             "Cannot get replica delay for table: " + backQuoteIfNeed(db.first) + "." + backQuoteIfNeed(iterator->name()));
                     }
 
-                    calculateMax(max_part_count_for_partition, table_replicated_merge_tree->getData().getMaxPartsCountForMonth());
+                    calculateMax(max_part_count_for_partition, table_replicated_merge_tree->getData().getMaxPartsCountForPartition());
                 }
 
                 if (table_merge_tree)
                 {
-                    calculateMax(max_part_count_for_partition, table_merge_tree->getData().getMaxPartsCountForMonth());
+                    calculateMax(max_part_count_for_partition, table_merge_tree->getData().getMaxPartsCountForPartition());
                 }
             }
         }

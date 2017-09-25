@@ -33,7 +33,7 @@ static NamesAndTypesList chooseColumns(const String & source_database, const Str
 
     {
         auto database = context.getDatabase(source_database);
-        auto iterator = database->getIterator();
+        auto iterator = database->getIterator(context);
 
         while (iterator->isValid())
         {
@@ -71,7 +71,7 @@ StoragePtr TableFunctionMerge::execute(const ASTPtr & ast_function, const Contex
             " - name of source database and regexp for table names.",
             ErrorCodes::NUMBER_OF_ARGUMENTS_DOESNT_MATCH);
 
-    args[0] = evaluateConstantExpressionOrIdentidierAsLiteral(args[0], context);
+    args[0] = evaluateConstantExpressionOrIdentifierAsLiteral(args[0], context);
     args[1] = evaluateConstantExpressionAsLiteral(args[1], context);
 
     String source_database = static_cast<const ASTLiteral &>(*args[0]).value.safeGet<String>();

@@ -2,6 +2,7 @@
 
 #include <ext/shared_ptr_helper.h>
 #include <atomic>
+#include <pcg_random.hpp>
 #include <Storages/IStorage.h>
 #include <Storages/MergeTree/MergeTreeData.h>
 #include <Storages/MergeTree/MergeTreeDataMerger.h>
@@ -21,6 +22,7 @@
 #include <Storages/MergeTree/RemoteQueryExecutor.h>
 #include <Storages/MergeTree/RemotePartChecker.h>
 #include <DataTypes/DataTypesNumber.h>
+#include <Common/randomSeed.h>
 #include <Common/ZooKeeper/ZooKeeper.h>
 #include <Common/ZooKeeper/LeaderElection.h>
 
@@ -131,7 +133,7 @@ public:
 
     BlockOutputStreamPtr write(const ASTPtr & query, const Settings & settings) override;
 
-    bool optimize(const ASTPtr & query, const String & partition, bool final, bool deduplicate, const Settings & settings) override;
+    bool optimize(const ASTPtr & query, const String & partition_id, bool final, bool deduplicate, const Settings & settings) override;
 
     void alter(const AlterCommands & params, const String & database_name, const String & table_name, const Context & context) override;
 
@@ -146,7 +148,7 @@ public:
         const Field & partition,
         const WeightedZooKeeperPaths & weighted_zookeeper_paths,
         const ASTPtr & sharding_key_expr, bool do_copy, const Field & coordinator,
-        Context & context) override;
+        const Context & context) override;
 
     /** Removes a replica from ZooKeeper. If there are no other replicas, it deletes the entire table from ZooKeeper.
       */
@@ -319,6 +321,8 @@ private:
 
     Logger * log;
 
+    pcg64 rng{randomSeed()};
+
     StorageReplicatedMergeTree(
         const String & zookeeper_path_,
         const String & replica_name_,
@@ -449,7 +453,7 @@ private:
     /// With the quorum being tracked, add a replica to the quorum for the part.
     void updateQuorum(const String & part_name);
 
-    AbandonableLockInZooKeeper allocateBlockNumber(const String & month_name, zkutil::ZooKeeperPtr & zookeeper);
+    AbandonableLockInZooKeeper allocateBlockNumber(const String & partition_id, zkutil::ZooKeeperPtr & zookeeper);
 
     /** Wait until all replicas, including this, execute the specified action from the log.
       * If replicas are added at the same time, it can not wait the added replica .
@@ -467,8 +471,8 @@ private:
     void assertNotReadonly() const;
 
     /// The name of an imaginary part covering all parts in the specified partition (at the call moment).
-    /// Returns empty string if partition is empy.
-    String getFakePartNameCoveringAllPartsInPartition(const String & month_name);
+    /// Returns empty string if partition is empty.
+    String getFakePartNameCoveringAllPartsInPartition(const String & partition_id);
 
     /// Check for a node in ZK. If it is, remember this information, and then immediately answer true.
     std::unordered_set<std::string> existing_nodes_cache;

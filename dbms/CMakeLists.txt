@@ -1,3 +1,7 @@
+if (USE_INCLUDE_WHAT_YOU_USE)
+    set (CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+endif ()
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/find_vectorclass.cmake)
 
 set (CONFIG_VERSION ${CMAKE_CURRENT_BINARY_DIR}/src/Common/config_version.h)
@@ -13,8 +17,6 @@ get_property (BUILD_COMPILE_DEFINITIONS DIRECTORY ${ClickHouse_SOURCE_DIR} PROPE
 get_property (BUILD_INCLUDE_DIRECTORIES DIRECTORY ${ClickHouse_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 string (TIMESTAMP BUILD_DATE "%Y-%m-%d" UTC)
 configure_file (${CMAKE_CURRENT_SOURCE_DIR}/src/Common/config_build.cpp.in ${CONFIG_BUILD})
-
-include_directories (${DBMS_INCLUDE_DIR})
 
 if (NOT NO_WERROR)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
@@ -208,6 +210,7 @@ target_link_libraries (dbms
 target_include_directories (dbms BEFORE PRIVATE ${DIVIDE_INCLUDE_DIR})
 target_include_directories (dbms BEFORE PRIVATE ${SPARCEHASH_INCLUDE_DIR})
 target_include_directories (dbms PUBLIC ${DBMS_INCLUDE_DIR})
+target_include_directories (dbms PUBLIC ${PCG_RANDOM_INCLUDE_DIR})
 
 # only for copy_headers.sh:
 target_include_directories (dbms PRIVATE ${COMMON_INCLUDE_DIR})

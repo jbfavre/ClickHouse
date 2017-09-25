@@ -15,15 +15,13 @@ namespace DB
 template <typename T>
 struct AggregateFunctionSumData
 {
-    T sum;
-
-    AggregateFunctionSumData() : sum(0) {}
+    T sum{};
 };
 
 
 /// Counts the sum of the numbers.
 template <typename T>
-class AggregateFunctionSum final : public IUnaryAggregateFunction<AggregateFunctionSumData<typename NearestFieldType<T>::Type>, AggregateFunctionSum<T> >
+class AggregateFunctionSum final : public IUnaryAggregateFunction<AggregateFunctionSumData<typename NearestFieldType<T>::Type>, AggregateFunctionSum<T>>
 {
 public:
     String getName() const override { return "sum"; }
@@ -65,6 +63,8 @@ public:
     {
         static_cast<ColumnVector<typename NearestFieldType<T>::Type> &>(to).getData().push_back(this->data(place).sum);
     }
+
+    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
