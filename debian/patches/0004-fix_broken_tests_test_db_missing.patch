@@ -1,0 +1,331 @@
+--- a/dbms/tests/queries/0_stateless/00386_enum_in_pk.sql
++++ b/dbms/tests/queries/0_stateless/00386_enum_in_pk.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.enum_pk;
+ CREATE TABLE test.enum_pk (date Date DEFAULT '0000-00-00', x Enum8('0' = 0, '1' = 1, '2' = 2), d Enum8('0' = 0, '1' = 1, '2' = 2)) ENGINE = MergeTree(date, x, 1);
+ INSERT INTO test.enum_pk (x, d) VALUES ('0', '0')('1', '1')('0', '0')('1', '1')('1', '1')('0', '0')('0', '0')('2', '2')('0', '0')('1', '1')('1', '1')('1', '1')('1', '1')('0', '0');
+--- a/dbms/tests/queries/0_stateless/00388_enum_with_totals.sql
++++ b/dbms/tests/queries/0_stateless/00388_enum_with_totals.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.enum_totals;
+ CREATE TABLE test.enum_totals (e Enum8('hello' = 1, 'world' = 2)) ENGINE = Memory;
+ INSERT INTO test.enum_totals VALUES ('hello'), ('world'), ('world');
+--- a/dbms/tests/queries/0_stateless/00392_enum_nested_alter.sql
++++ b/dbms/tests/queries/0_stateless/00392_enum_nested_alter.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.enum_nested_alter;
+ CREATE TABLE test.enum_nested_alter
+ (d Date DEFAULT '2000-01-01', x UInt64, n Nested(a String, e Enum8('Hello' = 1), b UInt8)) 
+--- a/dbms/tests/queries/0_stateless/00394_new_nested_column_keeps_offsets.sql
++++ b/dbms/tests/queries/0_stateless/00394_new_nested_column_keeps_offsets.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.alter;
+ CREATE TABLE test.alter (d Date, k UInt64, i32 Int32, n Nested(ui8 UInt8, s String)) ENGINE=MergeTree(d, k, 8192);
+ 
+--- a/dbms/tests/queries/0_stateless/00394_replaceall_vector_fixed.sql
++++ b/dbms/tests/queries/0_stateless/00394_replaceall_vector_fixed.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.replaceall;
+ CREATE TABLE test.replaceall (str FixedString(3)) ENGINE = Memory;
+ 
+--- a/dbms/tests/queries/0_stateless/00395_nullable.sql
++++ b/dbms/tests/queries/0_stateless/00395_nullable.sql
+@@ -1,4 +1,4 @@
+-
++CREATE DATABASE IF NOT EXISTS test;
+ /* NULL value */
+ 
+ SELECT NULL;
+--- a/dbms/tests/queries/0_stateless/00399_group_uniq_array_date_datetime.sql
++++ b/dbms/tests/queries/0_stateless/00399_group_uniq_array_date_datetime.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.grop_uniq_array_date;
+ CREATE TABLE test.grop_uniq_array_date (d Date, dt DateTime) ENGINE = Memory;
+ INSERT INTO test.grop_uniq_array_date VALUES (toDate('2016-12-16'), toDateTime('2016-12-16 12:00:00')) (toDate('2016-12-16'), toDateTime('2016-12-16 12:00:00'));
+--- a/dbms/tests/queries/0_stateless/00401_merge_and_stripelog.sql
++++ b/dbms/tests/queries/0_stateless/00401_merge_and_stripelog.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.stripe1;
+ DROP TABLE IF EXISTS test.stripe2;
+ DROP TABLE IF EXISTS test.stripe3;
+--- a/dbms/tests/queries/0_stateless/00410_aggregation_combinators_with_arenas.sql
++++ b/dbms/tests/queries/0_stateless/00410_aggregation_combinators_with_arenas.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.arena;
+ CREATE TABLE test.arena (k UInt8, d String) ENGINE = Memory;
+ INSERT INTO test.arena SELECT number % 10 AS k, hex(intDiv(number, 10) % 1000) AS d FROM system.numbers LIMIT 10000000;
+--- a/dbms/tests/queries/0_stateless/00411_merge_tree_where_const_in_set.sql
++++ b/dbms/tests/queries/0_stateless/00411_merge_tree_where_const_in_set.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.const_in_const;
+ CREATE TABLE test.const_in_const (id UInt64, date Date, uid UInt32, name String, Sign Int8) ENGINE = CollapsingMergeTree(date, intHash32(uid), (id, date, intHash32(uid)), 8192, Sign);
+ INSERT INTO test.const_in_const VALUES(1, now(), 1, 'test1', 1);
+--- a/dbms/tests/queries/0_stateless/00412_logical_expressions_optimizer.sql
++++ b/dbms/tests/queries/0_stateless/00412_logical_expressions_optimizer.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.merge_tree;
+ CREATE TABLE test.merge_tree (x UInt64, date Date) ENGINE = MergeTree(date, x, 1);
+ 
+--- a/dbms/tests/queries/0_stateless/00413_distinct.sql
++++ b/dbms/tests/queries/0_stateless/00413_distinct.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.distinct;
+ CREATE TABLE test.distinct (Num UInt32, Name String) ENGINE = Memory;
+ 
+--- a/dbms/tests/queries/0_stateless/00418_input_format_allow_errors.sh
++++ b/dbms/tests/queries/0_stateless/00418_input_format_allow_errors.sh
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ 
++clickhouse-client --query="CREATE DATABASE IF NOT EXISTS test"
+ clickhouse-client --query="DROP TABLE IF EXISTS test.formats_test"
+ clickhouse-client --query="CREATE TABLE test.formats_test (x UInt64, s String) ENGINE = Memory"
+ 
+--- a/dbms/tests/queries/0_stateless/00421_storage_merge__table_index.sh
++++ b/dbms/tests/queries/0_stateless/00421_storage_merge__table_index.sh
+@@ -1,6 +1,7 @@
+ #!/usr/bin/env bash
+ set -e
+ 
++clickhouse-client -q "CREATE DATABASE IF NOT EXISTS test"
+ for i in `seq -w 0 2 20`; do
+     clickhouse-client -q "DROP TABLE IF EXISTS test.merge_item_$i"
+     clickhouse-client -q "CREATE TABLE test.merge_item_$i (d Int8) ENGINE = Memory"
+--- a/dbms/tests/queries/0_stateless/00423_storage_log_single_thread.sql
++++ b/dbms/tests/queries/0_stateless/00423_storage_log_single_thread.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.log;
+ CREATE TABLE test.log (s String) ENGINE = Log;
+ 
+--- a/dbms/tests/queries/0_stateless/00428_partition.sh
++++ b/dbms/tests/queries/0_stateless/00428_partition.sh
+@@ -7,6 +7,7 @@ set -e
+ chl="clickhouse-client -q"
+ ch_dir=`clickhouse --extract-from-config -c ../../debian/clickhouse-server-config-tests.xml -k path`
+ 
++$chl "CREATE DATABASE IF NOT EXISTS test"
+ $chl "DROP TABLE IF EXISTS test.partition_428"
+ $chl "CREATE TABLE test.partition_428 (p Date, k Int8, v1 Int8 MATERIALIZED k + 1) ENGINE = MergeTree(p, k, 1)"
+ $chl "INSERT INTO test.partition_428 (p, k) VALUES(toDate(31), 1)"
+--- a/dbms/tests/queries/0_stateless/00431_if_nulls.sql
++++ b/dbms/tests/queries/0_stateless/00431_if_nulls.sql
+@@ -14,6 +14,7 @@
+  * Thus we have 5 * 4 * 4 = 80 combinations.
+  */
+ 
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nullable;
+ 
+ CREATE VIEW test.nullable
+--- a/dbms/tests/queries/0_stateless/00432_aggregate_function_scalars_and_constants.sql
++++ b/dbms/tests/queries/0_stateless/00432_aggregate_function_scalars_and_constants.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.agg_func_col;
+ 
+ CREATE TABLE test.agg_func_col (p Date, k UInt8, d AggregateFunction(sum, UInt64) DEFAULT arrayReduce('sumState', [toUInt64(200)])) ENGINE = AggregatingMergeTree(p, k, 1);
+--- a/dbms/tests/queries/0_stateless/00440_nulls_merge_tree.sql
++++ b/dbms/tests/queries/0_stateless/00440_nulls_merge_tree.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nulls;
+ CREATE TABLE test.nulls (d Date, x Nullable(UInt64)) ENGINE = MergeTree(d, d, 8192);
+ INSERT INTO test.nulls SELECT toDate('2000-01-01'), number % 10 != 0 ? number : NULL FROM system.numbers LIMIT 10000;
+--- a/dbms/tests/queries/0_stateless/00443_optimize_final_vertical_merge.sh
++++ b/dbms/tests/queries/0_stateless/00443_optimize_final_vertical_merge.sh
+@@ -10,6 +10,7 @@ function get_num_parts {
+     clickhouse-client -q "SELECT count() FROM system.parts WHERE active AND database='$db' AND table='$table'"
+ }
+ 
++clickhouse-client -q "CREATE DATABASE IF NOT EXISTS $db"
+ clickhouse-client -q "DROP TABLE IF EXISTS $name"
+ 
+ clickhouse-client -q "CREATE TABLE $name (
+--- a/dbms/tests/queries/0_stateless/00443_preferred_block_size_bytes.sh
++++ b/dbms/tests/queries/0_stateless/00443_preferred_block_size_bytes.sh
+@@ -1,6 +1,7 @@
+ #!/bin/bash
+ set -e
+ 
++clickhouse-client -q "CREATE DATABASE IF NOT EXISTS test"
+ clickhouse-client -q "DROP TABLE IF EXISTS test.preferred_block_size_bytes"
+ clickhouse-client -q "CREATE TABLE test.preferred_block_size_bytes (p Date, s String) ENGINE = MergeTree(p, p, 1)"
+ clickhouse-client -q "INSERT INTO test.preferred_block_size_bytes (s) SELECT '16_bytes_-_-_-_' AS s FROM system.numbers LIMIT 10, 90"
+--- a/dbms/tests/queries/0_stateless/00447_foreach_modifier.sql
++++ b/dbms/tests/queries/0_stateless/00447_foreach_modifier.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ CREATE TABLE IF NOT EXISTS test.data (sketch Array(Int8)) ENGINE=Memory;
+ 
+ INSERT INTO test.data VALUES ([-1,-1,-1]), ([4,-1,2]), ([0,25,-1]), ([-1,-1,7]), ([-1,-1,-1]);
+--- a/dbms/tests/queries/0_stateless/00453_cast_enum.sql
++++ b/dbms/tests/queries/0_stateless/00453_cast_enum.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.cast_enums;
+ CREATE TABLE test.cast_enums
+ (
+--- a/dbms/tests/queries/0_stateless/00456_alter_nullable.sql
++++ b/dbms/tests/queries/0_stateless/00456_alter_nullable.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nullable_alter;
+ CREATE TABLE test.nullable_alter (d Date DEFAULT '2000-01-01', x String) ENGINE = MergeTree(d, d, 1);
+ 
+--- a/dbms/tests/queries/0_stateless/00457_log_tinylog_stripelog_nullable.sql
++++ b/dbms/tests/queries/0_stateless/00457_log_tinylog_stripelog_nullable.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nullable;
+ 
+ CREATE TABLE test.nullable (s String, ns Nullable(String), narr Array(Nullable(UInt64))) ENGINE = Log;
+--- a/dbms/tests/queries/0_stateless/00458_merge_type_cast.sql
++++ b/dbms/tests/queries/0_stateless/00458_merge_type_cast.sql
+@@ -1,4 +1,4 @@
+-
++CREATE DATABASE IF NOT EXISTS test;
+ SELECT ' UInt32 | UInt64 ';
+ 
+ DROP TABLE IF EXISTS test.u32;
+--- a/dbms/tests/queries/0_stateless/00462_json_true_false_literals.sql
++++ b/dbms/tests/queries/0_stateless/00462_json_true_false_literals.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.json;
+ CREATE TABLE test.json (x UInt8, title String) ENGINE = Memory;
+ INSERT INTO test.json FORMAT JSONEachRow {"x": true, "title": "true"}, {"x": false, "title": "false"}, {"x": 0, "title": "0"}, {"x": 1, "title": "1"}
+--- a/dbms/tests/queries/0_stateless/00465_nullable_default.sql
++++ b/dbms/tests/queries/0_stateless/00465_nullable_default.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nullable;
+ CREATE TABLE test.nullable (id Nullable(UInt32), cat String) ENGINE = Log;
+ INSERT INTO test.nullable (cat) VALUES ('test');
+--- a/dbms/tests/queries/0_stateless/00467_qualified_names.sql
++++ b/dbms/tests/queries/0_stateless/00467_qualified_names.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ SELECT dummy FROM system.one;
+ SELECT * FROM system.one;
+ SELECT `one`.dummy FROM system.one;
+--- a/dbms/tests/queries/0_stateless/00468_array_join_multiple_arrays_and_use_original_column.sql
++++ b/dbms/tests/queries/0_stateless/00468_array_join_multiple_arrays_and_use_original_column.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nested;
+ CREATE TABLE test.nested (nest Nested(x UInt8, y UInt8)) ENGINE = Memory;
+ INSERT INTO test.nested VALUES ([1, 2, 3], [4, 5, 6]);
+--- a/dbms/tests/queries/0_stateless/00469_comparison_of_strings_containing_null_char.sql
++++ b/dbms/tests/queries/0_stateless/00469_comparison_of_strings_containing_null_char.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ SELECT '**** constant-constant comparisons ****';
+ 
+ SELECT 'ab\0c' < 'ab\0d', 'ab\0c' > 'ab\0d';
+--- a/dbms/tests/queries/0_stateless/00472_create_view_if_not_exists.sql
++++ b/dbms/tests/queries/0_stateless/00472_create_view_if_not_exists.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.t;
+ DROP TABLE IF EXISTS test.mv;
+ DROP TABLE IF EXISTS test.`.inner.mv`;
+--- a/dbms/tests/queries/0_stateless/00475_in_join_db_table.sql
++++ b/dbms/tests/queries/0_stateless/00475_in_join_db_table.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.set;
+ CREATE TABLE test.set (x String) ENGINE = Memory;
+ INSERT INTO test.set VALUES ('hello');
+--- a/dbms/tests/queries/0_stateless/00481_reading_from_last_granula.sql
++++ b/dbms/tests/queries/0_stateless/00481_reading_from_last_granula.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.tab;
+ CREATE TABLE test.tab (date Date, value UInt64, s String, m FixedString(16)) ENGINE = MergeTree(date, (date, value), 8);
+ INSERT INTO test.tab SELECT today() as date, number as value, '' as s, toFixedString('', 16) as m from system.numbers limit 42;
+--- a/dbms/tests/queries/0_stateless/00481_view.sql
++++ b/dbms/tests/queries/0_stateless/00481_view.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.null;
+ DROP TABLE IF EXISTS test.null_view;
+ 
+--- a/dbms/tests/queries/0_stateless/00483_reading_from_array_structure.sql
++++ b/dbms/tests/queries/0_stateless/00483_reading_from_array_structure.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ drop table if exists test.table;
+ create table test.table (date Date, `Struct.Key1` Array(UInt64), `Struct.Key2` Array(UInt64), padding FixedString(16)) engine = MergeTree(date, (date), 16);
+ insert into test.table select today() as date, [number], [number + 1], toFixedString('', 16) from system.numbers limit 100;
+--- a/dbms/tests/queries/0_stateless/00484_preferred_max_column_in_block_size_bytes.sql
++++ b/dbms/tests/queries/0_stateless/00484_preferred_max_column_in_block_size_bytes.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ drop table if exists test.tab;
+ create table test.tab (date Date, x UInt64, s FixedString(128)) engine = MergeTree(date, (date, x), 8192);
+ insert into test.tab select today(), number, toFixedString('', 128) from system.numbers limit 8192;
+--- a/dbms/tests/queries/0_stateless/00485_http_insert_format.sh
++++ b/dbms/tests/queries/0_stateless/00485_http_insert_format.sh
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ 
++clickhouse-client --query="CREATE DATABASE IF NOT EXISTS test"
+ clickhouse-client --query="DROP TABLE IF EXISTS test.format"
+ clickhouse-client --query="CREATE TABLE test.format (s String, x FixedString(3)) ENGINE = Memory"
+ 
+--- a/dbms/tests/queries/0_stateless/00488_non_ascii_column_names.sql
++++ b/dbms/tests/queries/0_stateless/00488_non_ascii_column_names.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.non_ascii;
+ CREATE TABLE test.non_ascii (`привет` String, `мир` String) ENGINE = TinyLog;
+ INSERT INTO test.non_ascii VALUES ('hello', 'world');
+--- a/dbms/tests/queries/0_stateless/00489_pk_subexpression.sql
++++ b/dbms/tests/queries/0_stateless/00489_pk_subexpression.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.pk;
+ 
+ CREATE TABLE test.pk (d Date DEFAULT '2000-01-01', x DateTime, y UInt64, z UInt64) ENGINE = MergeTree(d, (toStartOfMinute(x), y, z), 1);
+--- a/dbms/tests/queries/0_stateless/00494_alias_substitution_bug.sql
++++ b/dbms/tests/queries/0_stateless/00494_alias_substitution_bug.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.nested;
+ CREATE TABLE test.nested (n Nested(x UInt8)) ENGINE = Memory;
+ INSERT INTO test.nested VALUES ([1, 2]);
+--- a/dbms/tests/queries/0_stateless/00497_whitespaces_in_insert.sh
++++ b/dbms/tests/queries/0_stateless/00497_whitespaces_in_insert.sh
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env bash
+ 
++clickhouse-client -q "CREATE DATABASE IF NOT EXISTS test";
+ clickhouse-client -q "DROP TABLE IF EXISTS test.ws";
+ clickhouse-client -q "CREATE TABLE test.ws (i UInt8) ENGINE = Memory";
+ 
+--- a/dbms/tests/queries/0_stateless/00499_json_enum_insert.sql
++++ b/dbms/tests/queries/0_stateless/00499_json_enum_insert.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.json;
+ CREATE TABLE test.json (x Enum8('browser' = 1, 'mobile' = 2), y String) ENGINE = Memory;
+ 
+--- a/dbms/tests/queries/0_stateless/00502_sum_map.sql
++++ b/dbms/tests/queries/0_stateless/00502_sum_map.sql
+@@ -1,3 +1,4 @@
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.sum_map;
+ CREATE TABLE test.sum_map(date Date, timeslot DateTime, statusMap Nested(status UInt16, requests UInt64)) ENGINE = Log;
+ 
