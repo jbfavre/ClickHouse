@@ -329,3 +329,13 @@
  DROP TABLE IF EXISTS test.sum_map;
  CREATE TABLE test.sum_map(date Date, timeslot DateTime, statusMap Nested(status UInt16, requests UInt64)) ENGINE = Log;
  
+--- a/dbms/tests/queries/0_stateless/00113_group_array.sql
++++ b/dbms/tests/queries/0_stateless/00113_group_array.sql
+@@ -4,6 +4,7 @@ SELECT '';
+ SELECT length(toString(groupArrayState(toDate(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
+ SELECT length(toString(groupArrayState(toDateTime(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
+ 
++CREATE DATABASE IF NOT EXISTS test;
+ DROP TABLE IF EXISTS test.numbers_mt;
+ CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
+ INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1000000;
