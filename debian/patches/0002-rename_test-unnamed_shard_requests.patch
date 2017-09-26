@@ -1,0 +1,17 @@
+Description: Fix tests
+ Some tests don't work when running a standalone clickhouse server
+ They should be skipped because we use the --no-shard option
+ But need to be renamed
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-08-31
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.reference
++++ /dev/null
+@@ -1 +0,0 @@
+-0
+--- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.sql
++++ /dev/null
+@@ -1 +0,0 @@
+-SELECT dummy FROM (SELECT dummy, NOT dummy AS x FROM remote('127.0.0.{1,2}', system.one) GROUP BY dummy HAVING x);
