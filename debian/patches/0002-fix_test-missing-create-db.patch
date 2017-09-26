@@ -322,13 +322,6 @@
  DROP TABLE IF EXISTS test.json;
  CREATE TABLE test.json (x Enum8('browser' = 1, 'mobile' = 2), y String) ENGINE = Memory;
  
---- a/dbms/tests/queries/0_stateless/00502_sum_map.sql
-+++ b/dbms/tests/queries/0_stateless/00502_sum_map.sql
-@@ -1,3 +1,4 @@
-+CREATE DATABASE IF NOT EXISTS test;
- DROP TABLE IF EXISTS test.sum_map;
- CREATE TABLE test.sum_map(date Date, timeslot DateTime, statusMap Nested(status UInt16, requests UInt64)) ENGINE = Log;
- 
 --- a/dbms/tests/queries/0_stateless/00113_group_array.sql
 +++ b/dbms/tests/queries/0_stateless/00113_group_array.sql
 @@ -4,6 +4,7 @@ SELECT '';

@@ -7,29 +7,6 @@ Origin: other
 Last-Update: 2017-03-20
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/copy_headers.sh
-+++ b/copy_headers.sh
-@@ -37,19 +37,10 @@ for src_file in $(echo | $CLANG -M -xc++
-     $(echo $START_HEADERS | sed -r -e 's/[^ ]+/-include \0/g') \
-     - |
-     tr -d '\\' |
--    sed -r -e 's/^-\.o://');
-+    sed -r -e 's/^-\.o://'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
- do
-     dst_file=$src_file;
-     dst_file=$(echo $dst_file | sed -r -e 's/build\///')    # for simplicity reasons, will put generated headers near the rest.
-     mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
-     cp "$src_file" "$DST/$dst_file";
- done
--
--
--# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
--#  заголовочные файлы, будет использоваться опция -march=native.
--
--for i in $(ls -1 $($CLANG -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
--do
--    cp "$i" "$DST/$i";
--done
 --- a/dbms/src/Interpreters/CMakeLists.txt
 +++ b/dbms/src/Interpreters/CMakeLists.txt
 @@ -6,7 +6,7 @@ else ()
@@ -51,3 +28,26 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 @@ -1,2 +0,0 @@
 -SET compile = 1, min_count_to_compile = 0, max_threads = 1;
 -SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
+--- a/copy_headers.sh
++++ b/copy_headers.sh
+@@ -31,19 +31,10 @@ for src_file in $($CLANG -M -xc++ -std=g
+     "$SOURCE_PATH/build/dbms/src/Common/config_version.h" \
+     "$SOURCE_PATH/dbms/src/Interpreters/SpecializedAggregator.h" |
+     tr -d '\\' |
+-    sed -r -e 's/^\w+\.o://');
++    sed -r -e 's/^\w+\.o://'|tr ' ' '\n'|grep -v '^/usr' |grep -v ^$);
+ do
+     dst_file=$src_file;
+     dst_file=$(echo $dst_file | sed -r -e 's/build\///')    # for simplicity reasons, will put generated headers near the rest.
+     mkdir -p "$DST/$(echo $dst_file | sed -r -e 's/\/[^/]*$/\//')";
+     cp "$src_file" "$DST/$dst_file";
+ done
+-
+-
+-# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
+-#  заголовочные файлы, будет использоваться опция -march=native.
+-
+-for i in $(ls -1 $($CLANG -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-do
+-    cp "$i" "$DST/$i";
+-done
