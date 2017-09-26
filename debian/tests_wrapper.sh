@@ -27,4 +27,4 @@ trap finish EXIT
 # Do tests
 cd dbms/tests
 PATH=$PATH:../../build/dbms/src/Server \
-  ./clickhouse-test -c ../../build/dbms/src/Server/clickhouse-client --no-shard
+  ./clickhouse-test -c ../../build/dbms/src/Server/clickhouse-client --no-shard --no-zookeeper
