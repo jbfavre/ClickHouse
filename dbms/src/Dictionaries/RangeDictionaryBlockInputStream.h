@@ -17,7 +17,7 @@ namespace DB
  * BlockInputStream implementation for external dictionaries
  * read() returns single block consisting of the in-memory contents of the dictionaries
  */
-template <typename DictionaryType, typename Key>
+template <class DictionaryType, class Key>
 class RangeDictionaryBlockInputStream : public DictionaryBlockInputStreamBase
 {
 public:
@@ -35,20 +35,20 @@ protected:
     Block getBlock(size_t start, size_t length) const override;
 
 private:
-    template <typename Type>
+    template <class Type>
     using DictionaryGetter = void (DictionaryType::*)(const std::string &, const PaddedPODArray<Key> &,
                              const PaddedPODArray<UInt16> &, PaddedPODArray<Type> &) const;
 
-    template <typename AttributeType>
+    template <class AttributeType>
     ColumnPtr getColumnFromAttribute(DictionaryGetter<AttributeType> getter,
                                      const PaddedPODArray<Key>& ids, const PaddedPODArray<UInt16> & dates,
                                      const DictionaryAttribute& attribute, const DictionaryType& dictionary) const;
     ColumnPtr getColumnFromAttributeString(const PaddedPODArray<Key>& ids, const PaddedPODArray<UInt16> & dates,
                                            const DictionaryAttribute& attribute, const DictionaryType& dictionary) const;
-    template <typename T>
+    template <class T>
     ColumnPtr getColumnFromPODArray(const PaddedPODArray<T>& array) const;
 
-    template <typename T>
+    template <class T>
     void addSpecialColumn(
         const std::experimental::optional<DictionarySpecialAttribute>& attribute, DataTypePtr type,
         const std::string & default_name, const std::unordered_set<std::string> & column_names,
@@ -65,7 +65,7 @@ private:
 };
 
 
-template <typename DictionaryType, typename Key>
+template <class DictionaryType, class Key>
 RangeDictionaryBlockInputStream<DictionaryType, Key>::RangeDictionaryBlockInputStream(
     DictionatyPtr dictionary, size_t max_column_size, const Names & column_names, PaddedPODArray<Key> && ids,
     PaddedPODArray<UInt16> && start_dates, PaddedPODArray<UInt16> && end_dates)
@@ -75,7 +75,7 @@ RangeDictionaryBlockInputStream<DictionaryType, Key>::RangeDictionaryBlockInputS
 {
 }
 
-template <typename DictionaryType, typename Key>
+template <class DictionaryType, class Key>
 Block RangeDictionaryBlockInputStream<DictionaryType, Key>::getBlock(size_t start, size_t length) const
 {
     PaddedPODArray<Key> block_ids;
@@ -95,8 +95,8 @@ Block RangeDictionaryBlockInputStream<DictionaryType, Key>::getBlock(size_t star
     return fillBlock(block_ids, block_start_dates, block_end_dates);
 }
 
-template <typename DictionaryType, typename Key>
-template <typename AttributeType>
+template <class DictionaryType, class Key>
+template <class AttributeType>
 ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromAttribute(
     DictionaryGetter<AttributeType> getter, const PaddedPODArray<Key>& ids,
     const PaddedPODArray<UInt16> & dates, const DictionaryAttribute& attribute, const DictionaryType& dictionary) const
@@ -106,7 +106,7 @@ ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromAtt
     return ColumnPtr(std::move(column_vector));
 }
 
-template <typename DictionaryType, typename Key>
+template <class DictionaryType, class Key>
 ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromAttributeString(
     const PaddedPODArray<Key>& ids, const PaddedPODArray<UInt16> & dates,
     const DictionaryAttribute& attribute, const DictionaryType& dictionary) const
@@ -116,8 +116,8 @@ ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromAtt
     return ColumnPtr(std::move(column_string));
 }
 
-template <typename DictionaryType, typename Key>
-template <typename T>
+template <class DictionaryType, class Key>
+template <class T>
 ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromPODArray(const PaddedPODArray<T>& array) const
 {
     auto column_vector = std::make_unique<ColumnVector<T>>();
@@ -130,8 +130,8 @@ ColumnPtr RangeDictionaryBlockInputStream<DictionaryType, Key>::getColumnFromPOD
 }
 
 
-template <typename DictionaryType, typename Key>
-template <typename T>
+template <class DictionaryType, class Key>
+template <class T>
 void RangeDictionaryBlockInputStream<DictionaryType, Key>::addSpecialColumn(
     const std::experimental::optional<DictionarySpecialAttribute> & attribute, DataTypePtr type,
     const std::string& default_name, const std::unordered_set<std::string> & column_names,
@@ -146,7 +146,7 @@ void RangeDictionaryBlockInputStream<DictionaryType, Key>::addSpecialColumn(
     }
 }
 
-template <typename DictionaryType, typename Key>
+template <class DictionaryType, class Key>
 Block RangeDictionaryBlockInputStream<DictionaryType, Key>::fillBlock(
     const PaddedPODArray<Key>& ids,
     const PaddedPODArray<UInt16> & start_dates, const PaddedPODArray<UInt16> & end_dates) const

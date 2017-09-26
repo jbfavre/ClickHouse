@@ -32,8 +32,8 @@ MemoryTracker::~MemoryTracker()
       *  then memory usage of 'next' memory trackers will be underestimated,
       *  because amount will be decreased twice (first - here, second - when real 'free' happens).
       */
-    if (auto value = amount.load(std::memory_order_relaxed))
-        free(value);
+    if (amount)
+        free(amount);
 }
 
 
@@ -47,13 +47,9 @@ void MemoryTracker::logPeakMemoryUsage() const
 
 void MemoryTracker::alloc(Int64 size)
 {
-    /** Using memory_order_relaxed means that if allocations are done simultaneously,
-      *  we allow exception about memory limit exceeded to be thrown only on next allocation.
-      * So, we allow over-allocations.
-      */
-    Int64 will_be = size + amount.fetch_add(size, std::memory_order_relaxed);
+    Int64 will_be = amount += size;
 
-    if (!next.load(std::memory_order_relaxed))
+    if (!next)
         CurrentMetrics::add(metric, size);
 
     Int64 current_limit = limit.load(std::memory_order_relaxed);
@@ -93,38 +89,36 @@ void MemoryTracker::alloc(Int64 size)
     if (will_be > peak.load(std::memory_order_relaxed))        /// Races doesn't matter. Could rewrite with CAS, but not worth.
         peak.store(will_be, std::memory_order_relaxed);
 
-    if (auto loaded_next = next.load(std::memory_order_relaxed))
-        loaded_next->alloc(size);
+    if (next)
+        next->alloc(size);
 }
 
 
 void MemoryTracker::free(Int64 size)
 {
-    Int64 new_amount = amount.fetch_sub(size, std::memory_order_relaxed) - size;
-
     /** Sometimes, query could free some data, that was allocated outside of query context.
       * Example: cache eviction.
       * To avoid negative memory usage, we "saturate" amount.
       * Memory usage will be calculated with some error.
-      * NOTE The code is not atomic. Not worth to fix.
       */
-    if (new_amount < 0)
-    {
-        amount.fetch_sub(new_amount);
-        size += new_amount;
-    }
+    Int64 size_to_subtract = size;
+    if (size_to_subtract > amount)
+        size_to_subtract = amount;
 
-    if (auto loaded_next = next.load(std::memory_order_relaxed))
-        loaded_next->free(size);
+    amount -= size_to_subtract;
+    /// NOTE above code is not atomic. It's easy to fix.
+
+    if (next)
+        next->free(size);
     else
-        CurrentMetrics::sub(metric, size);
+        CurrentMetrics::sub(metric, size_to_subtract);
 }
 
 
 void MemoryTracker::reset()
 {
-    if (!next.load(std::memory_order_relaxed))
-        CurrentMetrics::sub(metric, amount.load(std::memory_order_relaxed));
+    if (!next)
+        CurrentMetrics::sub(metric, amount);
 
     amount.store(0, std::memory_order_relaxed);
     peak.store(0, std::memory_order_relaxed);

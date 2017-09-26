@@ -4,7 +4,6 @@
 #include <common/Types.h>
 #include <common/ThreadPool.h>
 #include <random>
-#include <pcg_random.hpp>
 #include <thread>
 #include <atomic>
 #include <iomanip>
@@ -24,7 +23,7 @@ TEST(Common, RWLockFIFO_1)
     static auto fifo_lock = RWLockFIFO::create();
 
     static thread_local std::random_device rd;
-    static thread_local pcg64 gen(rd());
+    static thread_local std::mt19937 gen(rd());
 
     auto func = [&] (size_t threads, int round) {
         for (int  i = 0; i < cycles; ++i)
@@ -86,7 +85,7 @@ TEST(Common, RWLockFIFO_Recursive)
     static auto fifo_lock = RWLockFIFO::create();
 
     static thread_local std::random_device rd;
-    static thread_local pcg64 gen(rd());
+    static thread_local std::mt19937 gen(rd());
 
     std::thread t1([&] () {
         for (int i = 0; i < 2 * cycles; ++i)
@@ -107,7 +106,7 @@ TEST(Common, RWLockFIFO_Recursive)
             std::this_thread::sleep_for(sleep_for);
 
             auto lock2 = fifo_lock->getLock(RWLockFIFO::Read);
-
+            
             EXPECT_ANY_THROW({fifo_lock->getLock(RWLockFIFO::Write);});
         }
 

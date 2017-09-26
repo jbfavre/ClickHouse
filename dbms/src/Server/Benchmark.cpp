@@ -8,7 +8,6 @@
 #include <fstream>
 #include <iomanip>
 #include <random>
-#include <pcg_random.hpp>
 
 #include <Poco/File.h>
 #include <Poco/Util/Application.h>
@@ -231,7 +230,7 @@ private:
 
     void run()
     {
-        pcg64 generator(randomSeed());
+        std::mt19937 generator(randomSeed());
         std::uniform_int_distribution<size_t> distribution(0, queries.size() - 1);
 
         for (size_t i = 0; i < concurrency; ++i)

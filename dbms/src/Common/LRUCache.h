@@ -5,7 +5,6 @@
 #include <memory>
 #include <chrono>
 #include <mutex>
-#include <atomic>
 
 #include <common/logger_useful.h>
 
@@ -29,7 +28,7 @@ struct TrivialWeightFunction
 /// Cache starts to evict entries when their total weight exceeds max_size and when expiration time of these
 /// entries is due.
 /// Value weight should not change after insertion.
-template <typename TKey, typename TMapped, typename HashFunction = std::hash<TKey>, typename WeightFunction = TrivialWeightFunction<TMapped>>
+template <typename TKey, typename TMapped, typename HashFunction = std::hash<TMapped>, typename WeightFunction = TrivialWeightFunction<TMapped>>
 class LRUCache
 {
 public:
@@ -255,8 +254,8 @@ private:
     const Delay expiration_delay;
 
     mutable std::mutex mutex;
-    std::atomic<size_t> hits {0};
-    std::atomic<size_t> misses {0};
+    size_t hits = 0;
+    size_t misses = 0;
 
     WeightFunction weight_function;
 

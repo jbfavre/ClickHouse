@@ -69,8 +69,6 @@ public:
     {
         this->data(place).result.insertResultInto(to);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 }

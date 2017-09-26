@@ -117,8 +117,6 @@ public:
 
         static_cast<ColumnVector<T> &>(to).getData().push_back(quantile);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -219,8 +217,6 @@ public:
                 data_to[old_size + i] = T();
         }
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 }

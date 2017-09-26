@@ -40,7 +40,7 @@ void ReplicasStatusHandler::handleRequest(Poco::Net::HTTPServerRequest & request
         /// Iterate through all the replicated tables.
         for (const auto & db : databases)
         {
-            for (auto iterator = db.second->getIterator(context); iterator->isValid(); iterator->next())
+            for (auto iterator = db.second->getIterator(); iterator->isValid(); iterator->next())
             {
                 auto & table = iterator->table();
                 StorageReplicatedMergeTree * table_replicated = typeid_cast<StorageReplicatedMergeTree *>(table.get());
@@ -62,8 +62,7 @@ void ReplicasStatusHandler::handleRequest(Poco::Net::HTTPServerRequest & request
             }
         }
 
-        const auto & config = context.getConfigRef();
-        setResponseDefaultHeaders(response, config.getUInt("keep_alive_timeout", 10));
+        setResponseDefaultHeaders(response);
 
         if (ok && !verbose)
         {

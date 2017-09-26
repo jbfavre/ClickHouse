@@ -1,6 +1,5 @@
 #include <iostream>
 #include <random>
-#include <pcg_random.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -48,7 +47,7 @@ try
     ReadBufferFromFileDescriptor in(STDIN_FILENO);
     WriteBufferFromFileDescriptor out(STDOUT_FILENO);
 
-    pcg64 random;
+    std::mt19937 random;
 
     if (options.count("seed"))
         random.seed(options["seed"].as<UInt64>());

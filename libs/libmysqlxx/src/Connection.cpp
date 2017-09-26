@@ -3,10 +3,6 @@
 #include <mysqlxx/Connection.h>
 #include <mysqlxx/Exception.h>
 
-static inline const char* ifNotEmpty(const char* s)
-{
-    return s && *s ? s : nullptr;
-}
 
 namespace mysqlxx
 {
@@ -39,15 +35,12 @@ Connection::Connection(
     const char* password,
     unsigned port,
     const char * socket,
-    const char* ssl_ca,
-    const char* ssl_cert,
-    const char* ssl_key,
     unsigned timeout,
     unsigned rw_timeout)
     : driver(std::make_unique<MYSQL>())
 {
     is_connected = false;
-    connect(db, server, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout);
+    connect(db, server, user, password, port, socket, timeout, rw_timeout);
 }
 
 Connection::Connection(const std::string & config_name)
@@ -69,9 +62,6 @@ void Connection::connect(const char* db,
     const char* password,
     unsigned port,
     const char * socket,
-    const char* ssl_ca,
-    const char* ssl_cert,
-    const char* ssl_key,
     unsigned timeout,
     unsigned rw_timeout)
 {
@@ -98,11 +88,7 @@ void Connection::connect(const char* db,
     if (mysql_options(driver.get(), MYSQL_OPT_LOCAL_INFILE, nullptr))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-    /// Specifies particular ssl key and certificate if it needs
-    if (mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert), ifNotEmpty(ssl_ca), nullptr, nullptr))
-        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
-
-    if (!mysql_real_connect(driver.get(), server, user, password, db, port, ifNotEmpty(socket), driver->client_flag))
+    if (!mysql_real_connect(driver.get(), server, user, password, db, port, *socket ? socket : nullptr, driver->client_flag))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
     /// Sets UTF-8 as default encoding.

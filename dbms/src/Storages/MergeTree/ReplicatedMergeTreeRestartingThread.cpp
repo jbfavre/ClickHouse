@@ -82,7 +82,7 @@ void ReplicatedMergeTreeRestartingThread::run()
                     partialShutdown();
                 }
 
-                while (!need_stop)
+                while (true)
                 {
                     try
                     {
@@ -105,9 +105,6 @@ void ReplicatedMergeTreeRestartingThread::run()
 
                     break;
                 }
-
-                if (need_stop)
-                    break;
 
                 if (storage.is_readonly)
                     CurrentMetrics::sub(CurrentMetrics::ReadonlyReplica);

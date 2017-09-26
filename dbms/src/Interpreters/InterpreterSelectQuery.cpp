@@ -100,7 +100,7 @@ void InterpreterSelectQuery::init(const BlockInputStreamPtr & input, const Names
         }
     }
 
-    if (is_first_select_inside_union_all && (hasAsterisk() || hasAggregation(query)))
+    if (is_first_select_inside_union_all && hasAsterisk())
     {
         basicInit(input);
 
@@ -124,15 +124,6 @@ void InterpreterSelectQuery::init(const BlockInputStreamPtr & input, const Names
 
         basicInit(input);
     }
-}
-
-bool InterpreterSelectQuery::hasAggregation(const ASTSelectQuery & query_ptr)
-{
-    for (const ASTSelectQuery * elem = &query_ptr; elem; elem = static_cast<const ASTSelectQuery *>(elem->next_union_all.get()))
-        if (elem->group_expression_list || elem->having_expression)
-            return true;
-
-    return false;
 }
 
 void InterpreterSelectQuery::basicInit(const BlockInputStreamPtr & input)

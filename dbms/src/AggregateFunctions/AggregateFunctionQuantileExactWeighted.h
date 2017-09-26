@@ -154,8 +154,6 @@ public:
 
         static_cast<ColumnVector<ValueType> &>(to).getData().push_back(it->first);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -298,8 +296,6 @@ public:
             ++level_index;
         }
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 }

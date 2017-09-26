@@ -96,7 +96,6 @@ private:
     void init(const BlockInputStreamPtr & input, const Names & required_column_names = Names{});
     void basicInit(const BlockInputStreamPtr & input);
     void initQueryAnalyzer();
-    bool hasAggregation(const ASTSelectQuery & query_ptr);
 
     /// Execute one SELECT query from the UNION ALL chain.
     void executeSingleQuery();
