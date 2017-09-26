@@ -5,7 +5,6 @@
 #include <list>
 #include <memory>
 #include <random>
-#include <pcg_random.hpp>
 #include <unordered_map>
 #include <sys/mman.h>
 #include <boost/intrusive/list.hpp>
@@ -161,7 +160,7 @@ private:
 
     mutable std::mutex mutex;
 
-    pcg64 rng{randomSeed()};
+    std::mt19937_64 rng {static_cast<std::mt19937_64::result_type>(randomSeed())};
 
     struct Chunk : private boost::noncopyable
     {

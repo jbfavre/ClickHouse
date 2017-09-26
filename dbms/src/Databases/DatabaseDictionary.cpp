@@ -46,17 +46,13 @@ Tables DatabaseDictionary::loadTables()
     return tables;
 }
 
-bool DatabaseDictionary::isTableExist(
-    const Context & context,
-    const String & table_name) const
+bool DatabaseDictionary::isTableExist(const String & table_name) const
 {
     const std::lock_guard<std::mutex> lock_dictionaries {external_dictionaries.dictionaries_mutex};
     return external_dictionaries.dictionaries.count(table_name) && !deleted_tables.count(table_name);
 }
 
-StoragePtr DatabaseDictionary::tryGetTable(
-    const Context & context,
-    const String & table_name)
+StoragePtr DatabaseDictionary::tryGetTable(const String & table_name)
 {
     const std::lock_guard<std::mutex> lock_dictionaries {external_dictionaries.dictionaries_mutex};
 
@@ -79,12 +75,12 @@ StoragePtr DatabaseDictionary::tryGetTable(
     return {};
 }
 
-DatabaseIteratorPtr DatabaseDictionary::getIterator(const Context & context)
+DatabaseIteratorPtr DatabaseDictionary::getIterator()
 {
     return std::make_unique<DatabaseSnaphotIterator>(loadTables());
 }
 
-bool DatabaseDictionary::empty(const Context & context) const
+bool DatabaseDictionary::empty() const
 {
     const std::lock_guard<std::mutex> lock_dictionaries {external_dictionaries.dictionaries_mutex};
     for (const auto & pair : external_dictionaries.dictionaries)
@@ -103,58 +99,39 @@ void DatabaseDictionary::attachTable(const String & table_name, const StoragePtr
     throw Exception("DatabaseDictionary: attachTable() is not supported", ErrorCodes::NOT_IMPLEMENTED);
 }
 
-void DatabaseDictionary::createTable(
-    const Context & context,
-    const String & table_name,
-    const StoragePtr & table,
-    const ASTPtr & query,
-    const String & engine)
+void DatabaseDictionary::createTable(const String & table_name,
+                                     const StoragePtr & table,
+                                     const ASTPtr & query,
+                                     const String & engine,
+                                     const Settings & settings)
 {
     throw Exception("DatabaseDictionary: createTable() is not supported", ErrorCodes::NOT_IMPLEMENTED);
 }
 
-void DatabaseDictionary::removeTable(
-    const Context & context,
-    const String & table_name)
+void DatabaseDictionary::removeTable(const String & table_name)
 {
-    if (!isTableExist(context, table_name))
+    if (!isTableExist(table_name))
         throw Exception("Table " + name + "." + table_name + " doesn't exist.", ErrorCodes::UNKNOWN_TABLE);
 
     const std::lock_guard<std::mutex> lock_dictionaries {external_dictionaries.dictionaries_mutex};
     deleted_tables.insert(table_name);
 }
 
-void DatabaseDictionary::renameTable(
-    const Context & context,
-    const String & table_name,
-    IDatabase & to_database,
-    const String & to_table_name)
+void DatabaseDictionary::renameTable(const Context & context,
+                                     const String & table_name,
+                                     IDatabase & to_database,
+                                     const String & to_table_name,
+                                     const Settings & settings)
 {
     throw Exception("DatabaseDictionary: renameTable() is not supported", ErrorCodes::NOT_IMPLEMENTED);
 }
 
-void DatabaseDictionary::alterTable(
-    const Context & context,
-    const String & name,
-    const NamesAndTypesList & columns,
-    const NamesAndTypesList & materialized_columns,
-    const NamesAndTypesList & alias_columns,
-    const ColumnDefaults & column_defaults,
-    const ASTModifier & engine_modifier)
-{
-    throw Exception("DatabaseDictionary: alterTable() is not supported", ErrorCodes::NOT_IMPLEMENTED);
-}
-
-time_t DatabaseDictionary::getTableMetadataModificationTime(
-    const Context & context,
-    const String & table_name)
+time_t DatabaseDictionary::getTableMetadataModificationTime(const String & table_name)
 {
     return static_cast<time_t>(0);
 }
 
-ASTPtr DatabaseDictionary::getCreateQuery(
-    const Context & context,
-    const String & table_name) const
+ASTPtr DatabaseDictionary::getCreateQuery(const String & table_name) const
 {
     throw Exception("DatabaseDictionary: getCreateQuery() is not supported", ErrorCodes::NOT_IMPLEMENTED);
     return nullptr;
@@ -169,4 +146,14 @@ void DatabaseDictionary::drop()
     /// Additional actions to delete database are not required.
 }
 
+void DatabaseDictionary::alterTable(const Context & context,
+                                    const String & name,
+                                    const NamesAndTypesList & columns,
+                                    const NamesAndTypesList & materialized_columns,
+                                    const NamesAndTypesList & alias_columns,
+                                    const ColumnDefaults & column_defaults,
+                                    const ASTModifier & engine_modifier)
+{
+    throw Exception("DatabaseDictionary: alterTable() is not supported", ErrorCodes::NOT_IMPLEMENTED);
+}
 }

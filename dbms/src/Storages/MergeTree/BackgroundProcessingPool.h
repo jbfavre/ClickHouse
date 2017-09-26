@@ -8,7 +8,6 @@
 #include <mutex>
 #include <shared_mutex>
 #include <atomic>
-#include <functional>
 #include <Poco/Event.h>
 #include <Poco/Timestamp.h>
 #include <Core/Types.h>

@@ -411,8 +411,6 @@ public:
         else
             static_cast<ColumnVector<T> &>(to).getData().push_back(quantile);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -482,8 +480,6 @@ public:
         else
             static_cast<ColumnVector<T> &>(to).getData().push_back(quantile);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -567,8 +563,6 @@ public:
                 params, &levels.levels[0], &levels.permutation[0], size, &data_to[old_size]);
         }
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -654,8 +648,6 @@ public:
                 params, &levels.levels[0], &levels.permutation[0], size, &data_to[old_size]);
         }
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 }

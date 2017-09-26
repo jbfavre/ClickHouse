@@ -21,7 +21,6 @@
 #include <Common/getFQDNOrHostName.h>
 #include <Common/setThreadName.h>
 #include <Common/Stopwatch.h>
-#include <Common/randomSeed.h>
 
 #include <DataTypes/DataTypesNumber.h>
 #include <DataTypes/DataTypeString.h>
@@ -34,9 +33,6 @@
 #include <Common/ZooKeeper/Lock.h>
 #include <Common/isLocalAddress.h>
 #include <Poco/Timestamp.h>
-
-#include <random>
-#include <pcg_random.hpp>
 
 
 namespace DB
@@ -659,7 +655,7 @@ void DDLWorker::processTaskAlter(
         bool alter_executed_by_any_replica = false;
         {
             auto lock = createSimpleZooKeeperLock(zookeeper, shard_path, "lock", task.host_id_str);
-            pcg64 rng(randomSeed());
+            std::mt19937 rng(StringRefHash{}(task.host_id_str) + reinterpret_cast<intptr_t>(&rng));
 
             for (int num_tries = 0; num_tries < 10; ++num_tries)
             {

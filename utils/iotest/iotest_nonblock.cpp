@@ -13,14 +13,12 @@
 #include <vector>
 
 #include <random>
-#include <pcg_random.hpp>
 
 #include <Poco/NumberParser.h>
 #include <Poco/NumberFormatter.h>
 #include <Poco/Exception.h>
 
 #include <Common/Exception.h>
-#include <Common/randomSeed.h>
 
 #include <common/ThreadPool.h>
 #include <Common/Stopwatch.h>
@@ -79,7 +77,11 @@ int mainImpl(int argc, char ** argv)
 
     std::vector<char> buf(block_size);
 
-    pcg64 rng(randomSeed());
+    std::mt19937 rng;
+
+    timespec times;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &times);
+    rng.seed(times.tv_nsec);
 
     Stopwatch watch;
 

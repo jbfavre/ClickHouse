@@ -31,42 +31,32 @@ public:
 
     String getEngineName() const override { return "Memory"; }
 
-    void loadTables(
-        Context & context,
-        ThreadPool * thread_pool,
-        bool has_force_restore_data_flag) override;
+    void loadTables(Context & context, ThreadPool * thread_pool, bool has_force_restore_data_flag) override;
 
-    bool empty(const Context & context) const override;
+    bool isTableExist(const String & table_name) const override;
+    StoragePtr tryGetTable(const String & table_name) override;
 
-    DatabaseIteratorPtr getIterator(const Context & context) override;
+    DatabaseIteratorPtr getIterator() override;
 
-    bool isTableExist(
-        const Context & context,
-        const String & table_name) const override;
-
-    StoragePtr tryGetTable(
-        const Context & context,
-        const String & table_name) override;
+    bool empty() const override;
 
     void createTable(
-        const Context & context,
-        const String & table_name,
-        const StoragePtr & table,
-        const ASTPtr & query,
-        const String & engine) override;
+        const String & table_name, const StoragePtr & table, const ASTPtr & query, const String & engine, const Settings & settings) override;
 
-    void removeTable(
-        const Context & context,
-        const String & table_name) override;
+    void removeTable(const String & table_name) override;
 
     void attachTable(const String & table_name, const StoragePtr & table) override;
     StoragePtr detachTable(const String & table_name) override;
 
     void renameTable(
-        const Context & context,
-        const String & table_name,
-        IDatabase & to_database,
-        const String & to_table_name) override;
+        const Context & context, const String & table_name, IDatabase & to_database, const String & to_table_name, const Settings & settings) override;
+
+    time_t getTableMetadataModificationTime(const String & table_name) override;
+
+    ASTPtr getCreateQuery(const String & table_name) const override;
+
+    void shutdown() override;
+    void drop() override;
 
     void alterTable(
         const Context & context,
@@ -76,17 +66,6 @@ public:
         const NamesAndTypesList & alias_columns,
         const ColumnDefaults & column_defaults,
         const ASTModifier & engine_modifier) override;
-
-    time_t getTableMetadataModificationTime(
-        const Context & context,
-        const String & table_name) override;
-
-    ASTPtr getCreateQuery(
-        const Context & context,
-        const String & table_name) const override;
-
-    void shutdown() override;
-    void drop() override;
 };
 
 }

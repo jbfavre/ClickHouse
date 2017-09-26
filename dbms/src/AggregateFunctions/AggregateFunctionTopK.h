@@ -120,8 +120,6 @@ public:
         for (auto it = resultVec.begin(); it != resultVec.end(); ++it, ++i)
             data_to[old_size + i] = it->key;
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -238,8 +236,6 @@ public:
             deserializeAndInsert(elem.key, data_to);
         }
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 

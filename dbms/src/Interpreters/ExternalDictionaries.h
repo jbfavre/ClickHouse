@@ -13,8 +13,7 @@
 #include <thread>
 #include <unordered_map>
 #include <chrono>
-#include <pcg_random.hpp>
-
+#include <random>
 
 namespace DB
 {
@@ -75,7 +74,7 @@ private:
       */
     std::unordered_map<std::string, std::chrono::system_clock::time_point> update_times;
 
-    pcg64 rnd_engine{randomSeed()};
+    std::mt19937_64 rnd_engine{randomSeed()};
 
     Context & context;
 

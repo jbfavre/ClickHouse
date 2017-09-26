@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <random>
 #include <tuple>
 #include <vector>
 #include <shared_mutex>
@@ -18,7 +19,6 @@
 #include <ext/bit_cast.h>
 #include <ext/map.h>
 #include <ext/scope_guard.h>
-#include <pcg_random.hpp>
 
 
 namespace ProfileEvents
@@ -721,7 +721,7 @@ private:
     std::unique_ptr<SmallObjectPool> fixed_size_keys_pool = key_size_is_fixed ? std::make_unique<SmallObjectPool>(key_size) : nullptr;
     std::unique_ptr<ArenaWithFreeLists> string_arena;
 
-    mutable pcg64 rnd_engine;
+    mutable std::mt19937_64 rnd_engine;
 
     mutable size_t bytes_allocated = 0;
     mutable std::atomic<size_t> element_count{0};

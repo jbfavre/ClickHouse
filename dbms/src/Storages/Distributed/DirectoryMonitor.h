@@ -2,7 +2,6 @@
 
 #include <Storages/StorageDistributed.h>
 
-#include <atomic>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -46,7 +45,7 @@ private:
     std::chrono::milliseconds default_sleep_time;
     std::chrono::milliseconds sleep_time;
     std::chrono::time_point<std::chrono::system_clock> last_decrease_time {std::chrono::system_clock::now()};
-    std::atomic<bool> quit {false};
+    bool quit {false};
     std::mutex mutex;
     std::condition_variable cond;
     Logger * log;

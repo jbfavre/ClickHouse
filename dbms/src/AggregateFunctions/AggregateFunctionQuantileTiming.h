@@ -843,8 +843,6 @@ public:
     {
         static_cast<ColumnFloat32 &>(to).getData().push_back(this->data(place).getFloat(level));
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -905,8 +903,6 @@ public:
     {
         static_cast<ColumnFloat32 &>(to).getData().push_back(this->data(place).getFloat(level));
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -975,8 +971,6 @@ public:
 
         this->data(place).getManyFloat(&levels.levels[0], &levels.permutation[0], size, &data_to[old_size]);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 
@@ -1043,8 +1037,6 @@ public:
 
         this->data(place).getManyFloat(&levels.levels[0], &levels.permutation[0], size, &data_to[old_size]);
     }
-
-    const char * getHeaderFilePath() const override { return __FILE__; }
 };
 
 

@@ -19,7 +19,7 @@ namespace ErrorCodes
 /** ColumnConst contains another column with single element,
   *  but looks like a column with arbitary amount of same elements.
   */
-class ColumnConst final : public IColumn
+class ColumnConst : public IColumn
 {
 private:
     ColumnPtr data;

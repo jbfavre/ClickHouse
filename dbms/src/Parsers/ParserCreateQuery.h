@@ -56,7 +56,7 @@ protected:
 };
 
 
-template <typename NameParser>
+template <class NameParser>
 class IParserNameTypePair : public IParserBase
 {
 protected:
@@ -69,7 +69,7 @@ using ParserNameTypePair = IParserNameTypePair<ParserIdentifier>;
 /** Name and type separated by a space. The name can contain a dot. For example, Hits.URL String. */
 using ParserCompoundNameTypePair = IParserNameTypePair<ParserCompoundIdentifier>;
 
-template <typename NameParser>
+template <class NameParser>
 bool IParserNameTypePair<NameParser>::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
 {
     NameParser name_parser;
@@ -101,7 +101,7 @@ protected:
 };
 
 
-template <typename NameParser>
+template <class NameParser>
 class IParserColumnDeclaration : public IParserBase
 {
 protected:
@@ -112,7 +112,7 @@ protected:
 using ParserColumnDeclaration = IParserColumnDeclaration<ParserIdentifier>;
 using ParserCompoundColumnDeclaration = IParserColumnDeclaration<ParserCompoundIdentifier>;
 
-template <typename NameParser>
+template <class NameParser>
 bool IParserColumnDeclaration<NameParser>::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
 {
     NameParser name_parser;

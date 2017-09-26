@@ -136,7 +136,7 @@ Block CollapsingSortedBlockInputStream::readImpl()
 }
 
 
-template <typename TSortCursor>
+template<class TSortCursor>
 void CollapsingSortedBlockInputStream::merge(ColumnPlainPtrs & merged_columns, std::priority_queue<TSortCursor> & queue)
 {
     size_t merged_rows = 0;

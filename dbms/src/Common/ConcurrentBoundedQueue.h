@@ -11,10 +11,10 @@
 
 namespace detail
 {
-    template <typename T, bool is_nothrow_move_assignable = std::is_nothrow_move_assignable<T>::value>
+    template <class T, bool is_nothrow_move_assignable = std::is_nothrow_move_assignable<T>::value>
     struct MoveOrCopyIfThrow;
 
-    template <typename T>
+    template <class T>
     struct MoveOrCopyIfThrow<T, true>
     {
         void operator()(T && src, T & dst) const
@@ -23,7 +23,7 @@ namespace detail
         }
     };
 
-    template <typename T>
+    template <class T>
     struct MoveOrCopyIfThrow<T, false>
     {
         void operator()(T && src, T & dst) const
@@ -32,14 +32,14 @@ namespace detail
         }
     };
 
-    template <typename T>
+    template <class T>
     void moveOrCopyIfThrow(T && src, T & dst)
     {
         MoveOrCopyIfThrow<T>()(std::forward<T>(src), dst);
     }
 };
 
-/** A very simple thread-safe queue of limited size.
+/** A very simple thread-safe queue of limited length.
   * If you try to pop an item from an empty queue, the thread is blocked until the queue becomes nonempty.
   * If you try to push an element into an overflowed queue, the thread is blocked until space appears in the queue.
   */
@@ -47,6 +47,7 @@ template <typename T>
 class ConcurrentBoundedQueue
 {
 private:
+    size_t max_fill;
     std::queue<T> queue;
     Poco::FastMutex mutex;
     Poco::Semaphore fill_count;
