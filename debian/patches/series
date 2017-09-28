@@ -2,6 +2,5 @@
 0002-fix_test-config.patch
 0002-fix_test-missing-create-db.patch
 0002-fix_test-progress_in_http_headers.patch
-0002-fix_test-separate_shard_requests.patch
 0002-remove_test-broken_http.patch
 0002-rename_test-unnamed_shard_requests.patch

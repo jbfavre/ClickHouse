@@ -1,3 +1,14 @@
+Description: Fix 00463_sessions_in_http_interface
+ One test fails because of buffering issue.
+ Might be related to the custom libpoco used by default by Clickhouse
+ .
+ Other issue is that test uses telnet which is not in build-dependencies.
+ Replaced with netcat-traditional
+Author: Jean Baptiste Favre <debian@jbfavre.org>
+Origin: other
+Last-Update: 2017-09-28
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/queries/0_stateless/00429_http_bufferization.sh
 +++ b/dbms/tests/queries/0_stateless/00429_http_bufferization.sh
 @@ -47,7 +47,6 @@ function check_exception_handling() {
