@@ -2,9 +2,9 @@ Source: clickhouse
 Section: database
 Priority: optional
 Maintainer: Jean Baptiste Favre <debian@jbfavre.org>
-Build-Depends: debhelper (>= 10), dh-systemd (>=1.5),
-               cmake, clang, python, curl, perl,
+Build-Depends: debhelper (>= 10), cmake, clang, python, curl, perl,
                default-libmysqlclient-dev | libmysqlclient-dev,
+               netcat-traditional,
                libboost-dev,
                libboost-filesystem-dev,
                libboost-program-options-dev,
@@ -26,7 +26,7 @@ Build-Depends: debhelper (>= 10), dh-systemd (>=1.5),
                libzstd-dev,
                unixodbc-dev, 
                python-lxml, python-termcolor
-Standards-Version: 4.0.0
+Standards-Version: 4.1.0
 Homepage: https://clickhouse.yandex/
 Vcs-Git: https://github.com/jbfavre/clickhouse.git
 Vcs-Browser: https://github.com/jbfavre/clickhouse/
