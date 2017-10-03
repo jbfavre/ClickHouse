@@ -107,7 +107,7 @@ ColumnsWithTypeAndName toNestedColumns(const ColumnsWithTypeAndName & args)
             auto nullable_col = static_cast<const ColumnNullable *>(arg.column.get());
             ColumnPtr nested_col = (nullable_col) ? nullable_col->getNestedColumn() : nullptr;
             auto nullable_type = static_cast<const DataTypeNullable *>(arg.type.get());
-            DataTypePtr nested_type = nullable_type->getNestedType();
+            const DataTypePtr & nested_type = nullable_type->getNestedType();
 
             new_args.emplace_back(nested_col, nested_type, arg.name);
         }
@@ -129,7 +129,7 @@ DataTypes toNestedDataTypes(const DataTypes & args)
         if (arg->isNullable())
         {
             auto nullable_type = static_cast<const DataTypeNullable *>(arg.get());
-            DataTypePtr nested_type = nullable_type->getNestedType();
+            const DataTypePtr & nested_type = nullable_type->getNestedType();
             new_args.push_back(nested_type);
         }
         else
@@ -204,12 +204,17 @@ bool defaultImplementationForNulls(
         const ColumnWithTypeAndName & source_col = temporary_block.getByPosition(result);
         ColumnWithTypeAndName & dest_col = block.getByPosition(result);
 
-        /// Initialize the result column.
-        ColumnPtr null_map = std::make_shared<ColumnUInt8>(block.rows(), 0);
-        dest_col.column = std::make_shared<ColumnNullable>(source_col.column, null_map);
+        if (source_col.column->isConst())
+            dest_col.column = source_col.column;
+        else
+        {
+            /// Initialize the result column.
+            ColumnPtr null_map = std::make_shared<ColumnUInt8>(block.rows(), 0);
+            dest_col.column = std::make_shared<ColumnNullable>(source_col.column, null_map);
 
-        /// Deduce the null map of the result from the null maps of the nullable columns.
-        createNullMap(block, args, result);
+            /// Deduce the null map of the result from the null maps of the nullable columns.
+            createNullMap(block, args, result);
+        }
 
         return true;
     }

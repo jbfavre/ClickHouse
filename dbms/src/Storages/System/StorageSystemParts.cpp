@@ -93,7 +93,7 @@ BlockInputStreams StorageSystemParts::read(
             const DatabasePtr database = databases.at(database_name);
 
             offsets[i] = i ? offsets[i - 1] : 0;
-            for (auto iterator = database->getIterator(); iterator->isValid(); iterator->next())
+            for (auto iterator = database->getIterator(context); iterator->isValid(); iterator->next())
             {
                 String table_name = iterator->name();
                 StoragePtr storage = iterator->table();
@@ -202,7 +202,11 @@ BlockInputStreams StorageSystemParts::read(
         for (const MergeTreeData::DataPartPtr & part : all_parts)
         {
             size_t i = 0;
-            block.getByPosition(i++).column->insert(part->info.partition_id);
+            {
+                WriteBufferFromOwnString out;
+                part->partition.serializeTextQuoted(*data, out);
+                block.getByPosition(i++).column->insert(out.str());
+            }
             block.getByPosition(i++).column->insert(part->name);
             block.getByPosition(i++).column->insert(static_cast<UInt64>(active_parts.count(part)));
             block.getByPosition(i++).column->insert(static_cast<UInt64>(part->size));
