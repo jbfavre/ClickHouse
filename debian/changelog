@@ -1,3 +1,9 @@
+clickhouse (1.1.54292+ds-1~bpo9+1) stretch-backports; urgency=medium
+
+  * Rebuild for stretch-backports.
+
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Thu, 05 Oct 2017 16:28:09 +0200
+
 clickhouse (1.1.54292+ds-1) unstable; urgency=medium
 
   * Initial release (Closes: #851574)
