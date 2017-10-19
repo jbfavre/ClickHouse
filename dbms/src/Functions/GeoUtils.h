@@ -19,11 +19,6 @@
 #pragma GCC diagnostic pop
 #endif
 
-#if __clang__ && __clang_major__ <= 4
-#else
-#define USE_POINT_IN_POLYGON 1
-#endif
-
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 #include <boost/geometry/geometries/multi_polygon.hpp>
@@ -52,39 +47,36 @@ namespace GeoUtils
 
 
 template <typename Polygon>
-UInt64 getPolygonAllocatedBytes(const Polygon & polygon)
+UInt64 getPolygonAllocatedSize(Polygon && polygon)
 {
     UInt64 size = 0;
 
-    using RingType = typename Polygon::ring_type;
-    using ValueType = typename RingType::value_type;
+    using RingType = typename std::decay<Polygon>::type::ring_type;
 
-    auto sizeOfRing = [](const RingType & ring) { return sizeof(ring) + ring.capacity() * sizeof(ValueType); };
+    auto addSizeOfRing = [& size](const RingType & ring) { size += sizeof(ring) + ring.capacity(); };
 
-    size += sizeOfRing(polygon.outer());
+    addSizeOfRing(polygon.outer());
 
     const auto & inners = polygon.inners();
-    size += sizeof(inners) + inners.capacity() * sizeof(RingType);
+    size += sizeof(inners) + inners.capacity();
     for (auto & inner : inners)
-        size += sizeOfRing(inner);
+        addSizeOfRing(inner);
 
     return size;
 }
 
 template <typename MultiPolygon>
-UInt64 getMultiPolygonAllocatedBytes(const MultiPolygon & multi_polygon)
+UInt64 getMultiPolygonAllocatedSize(MultiPolygon && multi_polygon)
 {
-    using ValueType = typename MultiPolygon::value_type;
-    UInt64 size = multi_polygon.capacity() * sizeof(ValueType);
+    UInt64 size = multi_polygon.capacity();
 
     for (const auto & polygon : multi_polygon)
-        size += getPolygonAllocatedBytes(polygon);
+        size += getPolygonAllocatedSize(polygon);
 
     return size;
 }
 
-#if USE_POINT_IN_POLYGON
-template <typename CoordinateType = Float32>
+template <typename CoordinateType = Float32, UInt16 gridHeight = 8, UInt16 gridWidth = 8>
 class PointInPolygonWithGrid
 {
 public:
@@ -95,12 +87,10 @@ public:
     using Box = boost::geometry::model::box<Point>;
     using Segment = boost::geometry::model::segment<Point>;
 
-    explicit PointInPolygonWithGrid(const Polygon & polygon, UInt16 grid_size = 8)
-            : grid_size(std::max<UInt16>(1, grid_size)), polygon(polygon) {}
+    explicit PointInPolygonWithGrid(const Polygon & polygon) : polygon(polygon) {}
 
-    void init();
+    inline void init();
 
-    /// True if bound box is empty.
     bool hasEmptyBound() const { return has_empty_bound; }
 
     UInt64 getAllocatedBytes() const;
@@ -120,12 +110,11 @@ private:
 
     struct HalfPlane
     {
-        /// Line, a * x + b * y + c = 0. Vector (a, b) points inside half-plane.
+        /// Line
         CoordinateType a;
         CoordinateType b;
         CoordinateType c;
 
-        /// Take left half-plane.
         void fill(const Point & from, const Point & to)
         {
             a = -(to.y() - from.y());
@@ -139,17 +128,15 @@ private:
 
     struct Cell
     {
-        static const int max_stored_half_planes = 2;
+        static const int maxStoredHalfPlanes = 2;
 
-        HalfPlane half_planes[max_stored_half_planes];
+        HalfPlane half_planes[maxStoredHalfPlanes];
         size_t index_of_inner_polygon;
         CellType type;
     };
 
-    const UInt16 grid_size;
-
     Polygon polygon;
-    std::vector<Cell> cells;
+    std::array<Cell, gridHeight * gridWidth> cells;
     std::vector<MultiPolygon> polygons;
 
     CoordinateType cell_width;
@@ -168,7 +155,7 @@ private:
     void calcGridAttributes(Box & box);
 
     template <typename T>
-    T ALWAYS_INLINE getCellIndex(T row, T col) const { return row * grid_size + col; }
+    T ALWAYS_INLINE getCellIndex(T row, T col) const { return row * gridWidth + col; }
 
     /// Complex case. Will check intersection directly.
     inline void addComplexPolygonCell(size_t index, const Box & box);
@@ -191,23 +178,21 @@ private:
     inline Distance distance(const Point & point, const Polygon & polygon);
 };
 
-template <typename CoordinateType>
-UInt64 PointInPolygonWithGrid<CoordinateType>::getAllocatedBytes() const
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+UInt64 PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::getAllocatedBytes() const
 {
     UInt64 size = sizeof(*this);
 
-    size += cells.capacity() * sizeof(Cell);
-    size += polygons.capacity() * sizeof(MultiPolygon);
-    size += getPolygonAllocatedBytes(polygon);
-
+    size += polygons.capacity();
     for (const auto & polygon : polygons)
-        size += getMultiPolygonAllocatedBytes(polygon);
+        size += getMultiPolygonAllocatedSize(polygon);
+    size += getPolygonAllocatedSize(polygon);
 
     return size;
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::init()
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::init()
 {
     if (!was_grid_built)
         buildGrid();
@@ -215,17 +200,17 @@ void PointInPolygonWithGrid<CoordinateType>::init()
     was_grid_built = true;
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::calcGridAttributes(
-        PointInPolygonWithGrid<CoordinateType>::Box & box)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::calcGridAttributes(
+        PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & box)
 {
     boost::geometry::envelope(polygon, box);
 
     const Point & min_corner = box.min_corner();
     const Point & max_corner = box.max_corner();
 
-    cell_width = (max_corner.x() - min_corner.x()) / grid_size;
-    cell_height = (max_corner.y() - min_corner.y()) / grid_size;
+    cell_width = (max_corner.x() - min_corner.x()) / gridWidth;
+    cell_height = (max_corner.y() - min_corner.y()) / gridHeight;
 
     if (cell_width == 0 || cell_height == 0)
     {
@@ -239,25 +224,20 @@ void PointInPolygonWithGrid<CoordinateType>::calcGridAttributes(
     y_shift = -min_corner.y();
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::buildGrid()
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::buildGrid()
 {
     Box box;
     calcGridAttributes(box);
 
-    if (has_empty_bound)
-        return;
-
-    cells.assign(grid_size * grid_size, {});
-
     const Point & min_corner = box.min_corner();
 
-    for (size_t row = 0; row < grid_size; ++row)
+    for (size_t row = 0; row < gridHeight; ++row)
     {
         CoordinateType y_min = min_corner.y() + row * cell_height;
         CoordinateType y_max = min_corner.y() + (row + 1) * cell_height;
 
-        for (size_t col = 0; col < grid_size; ++col)
+        for (size_t col = 0; col < gridWidth; ++col)
         {
             CoordinateType x_min = min_corner.x() + col * cell_width;
             CoordinateType x_max = min_corner.x() + (col + 1) * cell_width;
@@ -283,22 +263,19 @@ void PointInPolygonWithGrid<CoordinateType>::buildGrid()
     }
 }
 
-template <typename CoordinateType>
-bool PointInPolygonWithGrid<CoordinateType>::contains(CoordinateType x, CoordinateType y)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+bool PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::contains(CoordinateType x, CoordinateType y)
 {
-    if (has_empty_bound)
-        return false;
-
     CoordinateType float_row = (y + y_shift) * y_scale;
     CoordinateType float_col = (x + x_shift) * x_scale;
 
-    if (float_row < 0 || float_row > grid_size)
+    if (float_row < 0 || float_row > gridHeight)
         return false;
-    if (float_col < 0 || float_col > grid_size)
+    if (float_col < 0 || float_col > gridWidth)
         return false;
 
-    int row = std::min<int>(float_row, grid_size - 1);
-    int col = std::min<int>(float_col, grid_size - 1);
+    int row = std::min<int>(float_row, gridHeight - 1);
+    int col = std::min<int>(float_col, gridWidth - 1);
 
     int index = getCellIndex(row, col);
     const auto & cell = cells[index];
@@ -323,11 +300,11 @@ bool PointInPolygonWithGrid<CoordinateType>::contains(CoordinateType x, Coordina
     }
 }
 
-template <typename CoordinateType>
-typename PointInPolygonWithGrid<CoordinateType>::Distance
-PointInPolygonWithGrid<CoordinateType>::distance(
-        const PointInPolygonWithGrid<CoordinateType>::Point & point,
-        const PointInPolygonWithGrid<CoordinateType>::Polygon & polygon)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+typename PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Distance
+PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::distance(
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Point & point,
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Polygon & polygon)
 {
     const auto & outer = polygon.outer();
     Distance distance = 0;
@@ -340,11 +317,11 @@ PointInPolygonWithGrid<CoordinateType>::distance(
     return distance;
 }
 
-template <typename CoordinateType>
-std::vector<typename PointInPolygonWithGrid<CoordinateType>::HalfPlane>
-PointInPolygonWithGrid<CoordinateType>::findHalfPlanes(
-        const PointInPolygonWithGrid<CoordinateType>::Box & box,
-        const PointInPolygonWithGrid<CoordinateType>::Polygon & intersection)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+std::vector<typename PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::HalfPlane>
+PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::findHalfPlanes(
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & box,
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Polygon & intersection)
 {
     std::vector<HalfPlane> half_planes;
     Polygon bound;
@@ -367,9 +344,9 @@ PointInPolygonWithGrid<CoordinateType>::findHalfPlanes(
     return half_planes;
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::addComplexPolygonCell(
-        size_t index, const PointInPolygonWithGrid<CoordinateType>::Box & box)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::addComplexPolygonCell(
+        size_t index, const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & box)
 {
     cells[index].type = CellType::complexPolygon;
     cells[index].index_of_inner_polygon = polygons.size();
@@ -392,9 +369,9 @@ void PointInPolygonWithGrid<CoordinateType>::addComplexPolygonCell(
     polygons.push_back(intersection);
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::addCell(
-        size_t index, const PointInPolygonWithGrid<CoordinateType>::Box & empty_box)
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::addCell(
+        size_t index, const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & empty_box)
 {
     const auto & min_corner = empty_box.min_corner();
     const auto & max_corner = empty_box.max_corner();
@@ -408,11 +385,11 @@ void PointInPolygonWithGrid<CoordinateType>::addCell(
 
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::addCell(
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::addCell(
         size_t index,
-        const PointInPolygonWithGrid<CoordinateType>::Box & box,
-        const PointInPolygonWithGrid<CoordinateType>::Polygon & intersection)
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & box,
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Polygon & intersection)
 {
     if (!intersection.inners().empty())
         addComplexPolygonCell(index, box);
@@ -436,12 +413,12 @@ void PointInPolygonWithGrid<CoordinateType>::addCell(
         addComplexPolygonCell(index, box);
 }
 
-template <typename CoordinateType>
-void PointInPolygonWithGrid<CoordinateType>::addCell(
+template <typename CoordinateType, UInt16 gridHeight, UInt16 gridWidth>
+void PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::addCell(
         size_t index,
-        const PointInPolygonWithGrid<CoordinateType>::Box & box,
-        const PointInPolygonWithGrid<CoordinateType>::Polygon & first,
-        const PointInPolygonWithGrid<CoordinateType>::Polygon & second)
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Box & box,
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Polygon & first,
+        const PointInPolygonWithGrid<CoordinateType, gridHeight, gridWidth>::Polygon & second)
 {
     if (!first.inners().empty() || !second.inners().empty())
         addComplexPolygonCell(index, box);
@@ -583,8 +560,6 @@ ColumnPtr pointInPolygon(const IColumn & x, const IColumn & y, PointInPolygonImp
     return Impl::call(x, y, impl);
 }
 
-#endif
-
 /// Total angle (signed) between neighbor vectors in linestring. Zero if linestring.size() < 2.
 template <typename Linestring>
 float calcLinestringRotation(const Linestring & points)
@@ -651,7 +626,7 @@ std::string serialize(Polygon && polygon)
         auto serializeFloat = [&buffer](float value) { buffer.write(reinterpret_cast<char *>(&value), sizeof(value)); };
         auto serializeSize = [&buffer](size_t size) { buffer.write(reinterpret_cast<char *>(&size), sizeof(size)); };
 
-        auto serializeRing = [& serializeFloat, & serializeSize](const RingType & ring)
+        auto serializeRing = [& buffer, & serializeFloat, & serializeSize](const RingType & ring)
         {
             serializeSize(ring.size());
             for (const auto & point : ring)

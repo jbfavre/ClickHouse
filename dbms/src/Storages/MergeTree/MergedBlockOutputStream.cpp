@@ -385,14 +385,10 @@ void MergedBlockOutputStream::writeSuffix()
     throw Exception("Method writeSuffix is not supported by MergedBlockOutputStream", ErrorCodes::NOT_IMPLEMENTED);
 }
 
-void MergedBlockOutputStream::writeSuffixAndFinalizePart(
-        MergeTreeData::MutableDataPartPtr & new_part,
-        const NamesAndTypesList * total_column_list,
-        MergeTreeData::DataPart::Checksums * additional_column_checksums)
+MergeTreeData::DataPart::Checksums MergedBlockOutputStream::writeSuffixAndGetChecksums(
+    const NamesAndTypesList & total_column_list,
+    MergeTreeData::DataPart::Checksums * additional_column_checksums)
 {
-    if (!total_column_list)
-        total_column_list = &columns_list;
-
     /// Finish write and get checksums.
     MergeTreeData::DataPart::Checksums checksums;
 
@@ -419,16 +415,14 @@ void MergedBlockOutputStream::writeSuffixAndFinalizePart(
     {
         /// A part is empty - all records are deleted.
         Poco::File(part_path).remove(true);
-        return;
+        checksums.files.clear();
+        return checksums;
     }
-
-    new_part->partition.store(storage, part_path, checksums);
-    new_part->minmax_idx.store(storage, part_path, checksums);
 
     {
         /// Write a file with a description of columns.
         WriteBufferFromFile out(part_path + "columns.txt", 4096);
-        total_column_list->writeText(out);
+        total_column_list.writeText(out);
     }
 
     {
@@ -437,12 +431,17 @@ void MergedBlockOutputStream::writeSuffixAndFinalizePart(
         checksums.write(out);
     }
 
-    new_part->size = marks_count;
-    new_part->modification_time = time(nullptr);
-    new_part->columns = *total_column_list;
-    new_part->index.swap(index_columns);
-    new_part->checksums = checksums;
-    new_part->size_in_bytes = MergeTreeData::DataPart::calcTotalSize(new_part->getFullPath());
+    return checksums;
+}
+
+MergeTreeData::DataPart::Checksums MergedBlockOutputStream::writeSuffixAndGetChecksums()
+{
+    return writeSuffixAndGetChecksums(columns_list, nullptr);
+}
+
+MergeTreeData::DataPart::Index & MergedBlockOutputStream::getIndex()
+{
+    return index_columns;
 }
 
 size_t MergedBlockOutputStream::marksCount()

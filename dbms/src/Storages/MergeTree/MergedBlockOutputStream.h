@@ -122,10 +122,13 @@ public:
 
     void writeSuffix() override;
 
-    void writeSuffixAndFinalizePart(
-            MergeTreeData::MutableDataPartPtr & new_part,
-            const NamesAndTypesList * total_columns_list = nullptr,
-            MergeTreeData::DataPart::Checksums * additional_column_checksums = nullptr);
+    MergeTreeData::DataPart::Checksums writeSuffixAndGetChecksums(
+        const NamesAndTypesList & total_column_list,
+        MergeTreeData::DataPart::Checksums * additional_column_checksums = nullptr);
+
+    MergeTreeData::DataPart::Checksums writeSuffixAndGetChecksums();
+
+    MergeTreeData::DataPart::Index & getIndex();
 
     /// How many marks are already written.
     size_t marksCount();

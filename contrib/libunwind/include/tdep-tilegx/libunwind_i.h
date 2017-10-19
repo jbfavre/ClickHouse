@@ -36,6 +36,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "mempool.h"
 #include "dwarf.h"
 
+#ifdef HAVE___THREAD
+# undef HAVE___THREAD
+#endif
+
 typedef struct
 {
   /* no Tilegx-specific fast trace */

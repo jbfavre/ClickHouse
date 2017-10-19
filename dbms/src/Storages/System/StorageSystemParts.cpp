@@ -202,11 +202,7 @@ BlockInputStreams StorageSystemParts::read(
         for (const MergeTreeData::DataPartPtr & part : all_parts)
         {
             size_t i = 0;
-            {
-                WriteBufferFromOwnString out;
-                part->partition.serializeTextQuoted(*data, out);
-                block.getByPosition(i++).column->insert(out.str());
-            }
+            block.getByPosition(i++).column->insert(part->info.partition_id);
             block.getByPosition(i++).column->insert(part->name);
             block.getByPosition(i++).column->insert(static_cast<UInt64>(active_parts.count(part)));
             block.getByPosition(i++).column->insert(static_cast<UInt64>(part->size));

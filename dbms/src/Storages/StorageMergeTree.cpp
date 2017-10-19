@@ -10,7 +10,6 @@
 #include <Interpreters/InterpreterAlterQuery.h>
 #include <Interpreters/PartLog.h>
 #include <Parsers/ASTFunction.h>
-#include <Parsers/ASTLiteral.h>
 #include <Parsers/ASTSelectQuery.h>
 #include <Storages/MergeTree/MergeTreeData.h>
 #include <Storages/MergeTree/ActiveDataPartSet.h>
@@ -40,9 +39,8 @@ StorageMergeTree::StorageMergeTree(
     const ColumnDefaults & column_defaults_,
     bool attach,
     Context & context_,
-    const ASTPtr & primary_expr_ast_,
-    const String & date_column_name,
-    const ASTPtr & partition_expr_ast_,
+    ASTPtr & primary_expr_ast_,
+    const String & date_column_name_,
     const ASTPtr & sampling_expression_, /// nullptr, if sampling is not supported.
     size_t index_granularity_,
     const MergeTreeData::MergingParams & merging_params_,
@@ -54,7 +52,7 @@ StorageMergeTree::StorageMergeTree(
     data(database_name, table_name,
          full_path, columns_,
          materialized_columns_, alias_columns_, column_defaults_,
-         context_, primary_expr_ast_, date_column_name, partition_expr_ast_,
+         context_, primary_expr_ast_, date_column_name_,
          sampling_expression_, index_granularity_, merging_params_,
          settings_, database_name_ + "." + table_name, false, attach),
     reader(data), writer(data), merger(data, context.getBackgroundPool()),
@@ -398,7 +396,7 @@ bool StorageMergeTree::mergeTask()
 }
 
 
-void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Field & column_name, const Context & context)
+void StorageMergeTree::clearColumnInPartition(const ASTPtr & query, const Field & partition, const Field & column_name, const Settings &)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.
@@ -407,7 +405,7 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Fi
     /// We don't change table structure, only data in some parts, parts are locked inside alterDataPart() function
     auto lock_read_structure = lockStructure(false, __PRETTY_FUNCTION__);
 
-    String partition_id = data.getPartitionIDFromQuery(partition, context);
+    String partition_id = data.getPartitionIDFromQuery(partition);
     MergeTreeData::DataParts parts = data.getDataParts();
 
     std::vector<MergeTreeData::AlterDataPartTransactionPtr> transactions;
@@ -448,17 +446,7 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Fi
 }
 
 
-bool StorageMergeTree::optimize(
-    const ASTPtr & query, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
-{
-    String partition_id;
-    if (partition)
-        partition_id = data.getPartitionIDFromQuery(partition, context);
-    return merge(context.getSettingsRef().min_bytes_to_use_direct_io, true, partition_id, final, deduplicate);
-}
-
-
-void StorageMergeTree::dropPartition(const ASTPtr & query, const ASTPtr & partition, bool detach, const Context & context)
+void StorageMergeTree::dropPartition(const ASTPtr & query, const Field & partition, bool detach, const Settings & settings)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.
@@ -466,7 +454,7 @@ void StorageMergeTree::dropPartition(const ASTPtr & query, const ASTPtr & partit
     /// Waits for completion of merge and does not start new ones.
     auto lock = lockForAlter(__PRETTY_FUNCTION__);
 
-    String partition_id = data.getPartitionIDFromQuery(partition, context);
+    String partition_id = data.getPartitionIDFromQuery(partition);
 
     size_t removed_parts = 0;
     MergeTreeData::DataParts parts = data.getDataParts();
@@ -485,18 +473,18 @@ void StorageMergeTree::dropPartition(const ASTPtr & query, const ASTPtr & partit
             data.replaceParts({part}, {}, false);
     }
 
-    LOG_INFO(log, (detach ? "Detached " : "Removed ") << removed_parts << " parts inside partition ID " << partition_id << ".");
+    LOG_INFO(log, (detach ? "Detached " : "Removed ") << removed_parts << " parts inside " << applyVisitor(FieldVisitorToString(), partition) << ".");
 }
 
 
-void StorageMergeTree::attachPartition(const ASTPtr & partition, bool part, const Context & context)
+void StorageMergeTree::attachPartition(const ASTPtr & query, const Field & field, bool part, const Settings & settings)
 {
     String partition_id;
 
     if (part)
-        partition_id = typeid_cast<const ASTLiteral &>(*partition).value.safeGet<String>();
+        partition_id = field.getType() == Field::Types::UInt64 ? toString(field.get<UInt64>()) : field.safeGet<String>();
     else
-        partition_id = data.getPartitionIDFromQuery(partition, context);
+        partition_id = data.getPartitionIDFromQuery(field);
 
     String source_dir = "detached/";
 
@@ -509,12 +497,12 @@ void StorageMergeTree::attachPartition(const ASTPtr & partition, bool part, cons
     else
     {
         LOG_DEBUG(log, "Looking for parts for partition " << partition_id << " in " << source_dir);
-        ActiveDataPartSet active_parts(data.format_version);
+        ActiveDataPartSet active_parts;
         for (Poco::DirectoryIterator it = Poco::DirectoryIterator(full_path + source_dir); it != Poco::DirectoryIterator(); ++it)
         {
             const String & name = it.name();
             MergeTreePartInfo part_info;
-            if (!MergeTreePartInfo::tryParsePartName(name, &part_info, data.format_version)
+            if (!MergeTreePartInfo::tryParsePartName(name, &part_info)
                 || part_info.partition_id != partition_id)
             {
                 continue;
@@ -544,9 +532,12 @@ void StorageMergeTree::attachPartition(const ASTPtr & partition, bool part, cons
 }
 
 
-void StorageMergeTree::freezePartition(const ASTPtr & partition, const String & with_name, const Context & context)
+void StorageMergeTree::freezePartition(const Field & partition, const String & with_name, const Settings & settings)
 {
-    data.freezePartition(partition, with_name, context);
+    /// The prefix can be arbitrary. Not necessarily a month - you can specify only a year.
+    data.freezePartition(partition.getType() == Field::Types::UInt64
+        ? toString(partition.get<UInt64>())
+        : partition.safeGet<String>(), with_name);
 }
 
 }

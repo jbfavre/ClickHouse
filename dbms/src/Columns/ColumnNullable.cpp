@@ -359,7 +359,6 @@ void getExtremesFromNullableContent(const ColumnVector<T> & col, const NullMap &
             cur_min = x;
             cur_max = x;
             has_not_null = true;
-            has_not_nan = !isNaN(x);
             continue;
         }
 
@@ -376,7 +375,8 @@ void getExtremesFromNullableContent(const ColumnVector<T> & col, const NullMap &
 
         if (x < cur_min)
             cur_min = x;
-        else if (x > cur_max)
+
+        if (x > cur_max)
             cur_max = x;
     }
 

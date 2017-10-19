@@ -57,20 +57,9 @@ unw_init_local(unw_cursor_t *cursor, ucontext_t *uc)
 }
 
 PROTECTED int
-unw_init_local2 (unw_cursor_t *cursor, ucontext_t *uc, int flag)
+unw_init_local_signal(unw_cursor_t *cursor, ucontext_t *uc)
 {
-  if (!flag)
-    {
-      return unw_init_local_common(cursor, uc, 1);
-    }
-  else if (flag == UNW_INIT_SIGNAL_FRAME)
-    {
-      return unw_init_local_common(cursor, uc, 0);
-    }
-  else
-    {
-      return -UNW_EINVAL;
-    }
+  return unw_init_local_common(cursor, uc, 0);
 }
 
 #endif /* !UNW_REMOTE_ONLY */
