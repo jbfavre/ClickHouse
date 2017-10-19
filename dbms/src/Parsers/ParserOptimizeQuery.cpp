@@ -1,9 +1,8 @@
-#include <Parsers/ParserOptimizeQuery.h>
-#include <Parsers/ParserPartition.h>
-#include <Parsers/CommonParsers.h>
-
-#include <Parsers/ASTOptimizeQuery.h>
 #include <Parsers/ASTIdentifier.h>
+#include <Parsers/ASTOptimizeQuery.h>
+
+#include <Parsers/CommonParsers.h>
+#include <Parsers/ParserOptimizeQuery.h>
 #include <Parsers/ASTLiteral.h>
 
 #include <Common/typeid_cast.h>
@@ -23,7 +22,7 @@ bool ParserOptimizeQuery::parseImpl(Pos & pos, ASTPtr & node, Expected & expecte
     ParserKeyword s_deduplicate("DEDUPLICATE");
     ParserToken s_dot(TokenType::Dot);
     ParserIdentifier name_p;
-    ParserPartition partition_p;
+    ParserLiteral partition_p;
 
     ASTPtr database;
     ASTPtr table;
@@ -63,7 +62,8 @@ bool ParserOptimizeQuery::parseImpl(Pos & pos, ASTPtr & node, Expected & expecte
         query->database = typeid_cast<const ASTIdentifier &>(*database).name;
     if (table)
         query->table = typeid_cast<const ASTIdentifier &>(*table).name;
-    query->partition = partition;
+    if (partition)
+        query->partition = applyVisitor(FieldVisitorToString(), typeid_cast<const ASTLiteral &>(*partition).value);
     query->final = final;
     query->deduplicate = deduplicate;
 

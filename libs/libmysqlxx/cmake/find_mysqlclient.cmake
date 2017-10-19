@@ -29,8 +29,9 @@ if (ENABLE_MYSQL)
 
     if (MYSQL_INCLUDE_DIR AND (STATIC_MYSQLCLIENT_LIB OR MYSQLCLIENT_LIBRARIES))
         set (USE_MYSQL 1)
-        set (MYSQLXX_LIBRARY mysqlxx)
     endif ()
+
+    set (MYSQLXX_LIBRARY mysqlxx)
 endif ()
 
 if (USE_MYSQL)

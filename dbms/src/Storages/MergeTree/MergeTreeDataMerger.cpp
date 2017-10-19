@@ -73,14 +73,6 @@ void MergeTreeDataMerger::FuturePart::assign(MergeTreeData::DataPartsVector part
     if (parts_.empty())
         return;
 
-    for (size_t i = 0; i < parts_.size(); ++i)
-    {
-        if (parts_[i]->partition.value != parts_[0]->partition.value)
-            throw Exception(
-                "Attempting to merge parts " + parts_[i]->name + " and " + parts_[0]->name + " that are in different partitions",
-                ErrorCodes::LOGICAL_ERROR);
-    }
-
     parts = std::move(parts_);
 
     UInt32 max_level = 0;
@@ -92,20 +84,16 @@ void MergeTreeDataMerger::FuturePart::assign(MergeTreeData::DataPartsVector part
     part_info.max_block = parts.back()->info.max_block;
     part_info.level = max_level + 1;
 
-    if (parts.front()->storage.format_version < MERGE_TREE_DATA_MIN_FORMAT_VERSION_WITH_CUSTOM_PARTITIONING)
+    DayNum_t min_date = DayNum_t(std::numeric_limits<UInt16>::max());
+    DayNum_t max_date = DayNum_t(std::numeric_limits<UInt16>::min());
+    for (const auto & part : parts)
     {
-        DayNum_t min_date = DayNum_t(std::numeric_limits<UInt16>::max());
-        DayNum_t max_date = DayNum_t(std::numeric_limits<UInt16>::min());
-        for (const auto & part : parts)
-        {
-            min_date = std::min(min_date, part->getMinDate());
-            max_date = std::max(max_date, part->getMaxDate());
-        }
-
-        name = part_info.getPartNameV0(min_date, max_date);
+        min_date = std::min(min_date, part->getMinDate());
+        max_date = std::max(max_date, part->getMaxDate());
     }
-    else
-        name = part_info.getPartName();
+
+    name = MergeTreePartInfo::getPartName(
+            min_date, max_date, part_info.min_block, part_info.max_block, part_info.level);
 }
 
 MergeTreeDataMerger::MergeTreeDataMerger(MergeTreeData & data_, const BackgroundProcessingPool & pool_)
@@ -747,14 +735,21 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMerger::mergePartsToTemporaryPart
             << merge_entry->bytes_read_uncompressed / 1000000.0 / elapsed_seconds << " MB/sec.");
     }
 
+    new_data_part->columns = all_columns;
     if (merge_alg != MergeAlgorithm::Vertical)
-        to.writeSuffixAndFinalizePart(new_data_part);
+        new_data_part->checksums = to.writeSuffixAndGetChecksums();
     else
-        to.writeSuffixAndFinalizePart(new_data_part, &all_columns, &checksums_gathered_columns);
+        new_data_part->checksums = to.writeSuffixAndGetChecksums(all_columns, &checksums_gathered_columns);
+    new_data_part->index.swap(to.getIndex());
 
     /// For convenience, even CollapsingSortedBlockInputStream can not return zero rows.
     if (0 == to.marksCount())
         throw Exception("Empty part after merge", ErrorCodes::LOGICAL_ERROR);
+
+    new_data_part->size = to.marksCount();
+    new_data_part->modification_time = time(nullptr);
+    new_data_part->size_in_bytes = MergeTreeData::DataPart::calcTotalSize(new_part_tmp_path);
+    new_data_part->is_sharded = false;
 
     return new_data_part;
 }
@@ -1057,7 +1052,14 @@ MergeTreeData::PerShardDataParts MergeTreeDataMerger::reshardPartition(
         }
 
         MergeTreeData::MutableDataPartPtr & data_part = per_shard_data_parts.at(shard_no);
-        output_stream->writeSuffixAndFinalizePart(data_part);
+
+        data_part->columns = column_names_and_types;
+        data_part->checksums = output_stream->writeSuffixAndGetChecksums();
+        data_part->index.swap(output_stream->getIndex());
+        data_part->size = output_stream->marksCount();
+        data_part->modification_time = time(nullptr);
+        data_part->size_in_bytes = MergeTreeData::DataPart::calcTotalSize(output_stream->getPartPath());
+        data_part->is_sharded = true;
         data_part->shard_no = shard_no;
     }
 
@@ -1067,11 +1069,9 @@ MergeTreeData::PerShardDataParts MergeTreeDataMerger::reshardPartition(
         size_t shard_no = entry.first;
         MergeTreeData::MutableDataPartPtr & part_from_shard = entry.second;
 
-        std::string new_name;
-        if (data.format_version < MERGE_TREE_DATA_MIN_FORMAT_VERSION_WITH_CUSTOM_PARTITIONING)
-            new_name = part_from_shard->info.getPartNameV0(part_from_shard->getMinDate(), part_from_shard->getMaxDate());
-        else
-            new_name = part_from_shard->info.getPartName();
+        std::string new_name = MergeTreePartInfo::getPartName(
+                part_from_shard->getMinDate(), part_from_shard->getMaxDate(),
+                part_from_shard->info.min_block, part_from_shard->info.max_block, part_from_shard->info.level);
         std::string new_relative_path = "reshard/" + toString(shard_no) + "/" + new_name;
 
         part_from_shard->renameTo(new_relative_path);

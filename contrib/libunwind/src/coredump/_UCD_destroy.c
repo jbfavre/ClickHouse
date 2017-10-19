@@ -44,9 +44,7 @@ _UCD_destroy (struct UCD_info *ui)
         close(phdr->backing_fd);
     }
 
-  free(ui->phdrs);
   free(ui->note_phdr);
-  free(ui->threads);
 
   free(ui);
 }
