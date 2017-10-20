@@ -8,7 +8,7 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/clickhouse-test
 +++ b/dbms/tests/clickhouse-test
-@@ -73,14 +73,14 @@ def main(args):
+@@ -72,14 +72,14 @@ def main(args):
  
      if args.zookeeper is None:
          try:
@@ -31,7 +31,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  # Test 1. Complex test checking columns.txt
  
  chl="clickhouse-client -q"
--ch_dir=`clickhouse extract-from-config -c /etc/clickhouse-server/config.xml -k path`
+-ch_dir=`clickhouse --extract-from-config -c /etc/clickhouse-server/config.xml -k path`
 +ch_dir=`clickhouse --extract-from-config -c ../../debian/clickhouse-server-config-tests.xml -k path`
  
  $chl "DROP TABLE IF EXISTS test.partition_428"
@@ -61,3 +61,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
 -curl -sS --local-port 1390 'http://localhost:8123?query=SELECT%20port%20FROM%20system.processes%20ORDER%20BY%20elapsed%20LIMIT%201'
 +curl -sS --local-port 1390 'http://127.0.0.1:8123?query=SELECT%20port%20FROM%20system.processes%20ORDER%20BY%20elapsed%20LIMIT%201'
+--- /dev/null
++++ b/dbms/tests/queries/0_stateless/99999_prepare.sql
+@@ -0,0 +1 @@
++CREATE DATABASE IF NOT EXISTS test;
