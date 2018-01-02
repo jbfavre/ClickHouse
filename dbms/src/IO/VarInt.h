@@ -73,7 +73,7 @@ inline const char * readVarT(UInt64 & x, const char * istr, size_t size) { retur
 inline const char * readVarT(Int64 & x, const char * istr, size_t size) { return readVarInt(x, istr, size); }
 
 
-/// For [U]Int32, [U]Int16.
+/// For [U]Int32, [U]Int16, size_t.
 
 inline void readVarUInt(UInt32 & x, ReadBuffer & istr)
 {
@@ -100,6 +100,15 @@ inline void readVarInt(Int16 & x, ReadBuffer & istr)
 {
     Int64 tmp;
     readVarInt(tmp, istr);
+    x = tmp;
+}
+
+template <typename T>
+inline std::enable_if_t<!std::is_same_v<T, UInt64>, void>
+readVarUInt(T & x, ReadBuffer & istr)
+{
+    UInt64 tmp;
+    readVarUInt(tmp, istr);
     x = tmp;
 }
 

@@ -1,5 +1,5 @@
-#include <experimental/optional>
-#include <Core/FieldVisitors.h>
+#include <optional>
+#include <Common/FieldVisitors.h>
 #include <Storages/StorageMergeTree.h>
 #include <Storages/MergeTree/MergeTreeBlockOutputStream.h>
 #include <Storages/MergeTree/DiskSpaceMonitor.h>
@@ -10,6 +10,7 @@
 #include <Interpreters/InterpreterAlterQuery.h>
 #include <Interpreters/PartLog.h>
 #include <Parsers/ASTFunction.h>
+#include <Parsers/ASTLiteral.h>
 #include <Parsers/ASTSelectQuery.h>
 #include <Storages/MergeTree/MergeTreeData.h>
 #include <Storages/MergeTree/ActiveDataPartSet.h>
@@ -33,28 +34,28 @@ StorageMergeTree::StorageMergeTree(
     const String & path_,
     const String & database_name_,
     const String & table_name_,
-    NamesAndTypesListPtr columns_,
+    const NamesAndTypesList & columns_,
     const NamesAndTypesList & materialized_columns_,
     const NamesAndTypesList & alias_columns_,
     const ColumnDefaults & column_defaults_,
     bool attach,
     Context & context_,
-    ASTPtr & primary_expr_ast_,
-    const String & date_column_name_,
+    const ASTPtr & primary_expr_ast_,
+    const String & date_column_name,
+    const ASTPtr & partition_expr_ast_,
     const ASTPtr & sampling_expression_, /// nullptr, if sampling is not supported.
-    size_t index_granularity_,
     const MergeTreeData::MergingParams & merging_params_,
-    bool has_force_restore_data_flag,
-    const MergeTreeSettings & settings_)
+    const MergeTreeSettings & settings_,
+    bool has_force_restore_data_flag)
     : IStorage{materialized_columns_, alias_columns_, column_defaults_},
     path(path_), database_name(database_name_), table_name(table_name_), full_path(path + escapeForFileName(table_name) + '/'),
     context(context_), background_pool(context_.getBackgroundPool()),
     data(database_name, table_name,
          full_path, columns_,
          materialized_columns_, alias_columns_, column_defaults_,
-         context_, primary_expr_ast_, date_column_name_,
-         sampling_expression_, index_granularity_, merging_params_,
-         settings_, database_name_ + "." + table_name, false, attach),
+         context_, primary_expr_ast_, date_column_name, partition_expr_ast_,
+         sampling_expression_, merging_params_,
+         settings_, false, attach),
     reader(data), writer(data), merger(data, context.getBackgroundPool()),
     log(&Logger::get(database_name_ + "." + table_name + " (StorageMergeTree)"))
 {
@@ -67,7 +68,7 @@ StorageMergeTree::StorageMergeTree(
     }
     else
     {
-        data.clearOldParts();
+        data.clearOldPartsFromFilesystem();
     }
 
     /// Temporary directories contain incomplete results of merges (after forced restart)
@@ -89,7 +90,7 @@ void StorageMergeTree::shutdown()
     if (shutdown_called)
         return;
     shutdown_called = true;
-    merger.cancelForever();
+    merger.merges_blocker.cancelForever();
     if (merge_task_handle)
         background_pool.removeTask(merge_task_handle);
 }
@@ -108,10 +109,10 @@ BlockInputStreams StorageMergeTree::read(
     const size_t max_block_size,
     const unsigned num_streams)
 {
-    return reader.read(column_names, query_info, context, processed_stage, max_block_size, num_streams, nullptr, 0);
+    return reader.read(column_names, query_info, context, processed_stage, max_block_size, num_streams, 0);
 }
 
-BlockOutputStreamPtr StorageMergeTree::write(const ASTPtr & query, const Settings & settings)
+BlockOutputStreamPtr StorageMergeTree::write(const ASTPtr & /*query*/, const Settings & /*settings*/)
 {
     return std::make_shared<MergeTreeBlockOutputStream>(*this);
 }
@@ -129,11 +130,11 @@ void StorageMergeTree::drop()
     data.dropAllData();
 }
 
-void StorageMergeTree::rename(const String & new_path_to_db, const String & new_database_name, const String & new_table_name)
+void StorageMergeTree::rename(const String & new_path_to_db, const String & /*new_database_name*/, const String & new_table_name)
 {
     std::string new_full_path = new_path_to_db + escapeForFileName(new_table_name) + '/';
 
-    data.setPath(new_full_path, true);
+    data.setPath(new_full_path);
 
     path = new_path_to_db;
     table_name = new_table_name;
@@ -149,7 +150,7 @@ void StorageMergeTree::alter(
     const Context & context)
 {
     /// NOTE: Here, as in ReplicatedMergeTree, you can do ALTER which does not block the writing of data for a long time.
-    auto merge_blocker = merger.cancel();
+    auto merge_blocker = merger.merges_blocker.cancel();
 
     auto table_soft_lock = lockDataForAlter(__PRETTY_FUNCTION__);
 
@@ -187,7 +188,7 @@ void StorageMergeTree::alter(
     if (primary_key_is_modified && supportsSampling())
         throw Exception("MODIFY PRIMARY KEY only supported for tables without sampling key", ErrorCodes::BAD_ARGUMENTS);
 
-    MergeTreeData::DataParts parts = data.getAllDataParts();
+    auto parts = data.getDataParts({MergeTreeDataPartState::PreCommitted, MergeTreeDataPartState::Committed, MergeTreeDataPartState::Outdated});
     for (const MergeTreeData::DataPartPtr & part : parts)
     {
         if (auto transaction = data.alterDataPart(part, columns_for_parts, new_primary_key_ast, false))
@@ -196,9 +197,9 @@ void StorageMergeTree::alter(
 
     auto table_hard_lock = lockStructureForAlter(__PRETTY_FUNCTION__);
 
-    IDatabase::ASTModifier engine_modifier;
+    IDatabase::ASTModifier storage_modifier;
     if (primary_key_is_modified)
-        engine_modifier = [&new_primary_key_ast] (ASTPtr & engine_ast)
+        storage_modifier = [&new_primary_key_ast] (IAST & ast)
         {
             auto tuple = std::make_shared<ASTFunction>(new_primary_key_ast->range);
             tuple->name = "tuple";
@@ -207,13 +208,14 @@ void StorageMergeTree::alter(
 
             /// Primary key is in the second place in table engine description and can be represented as a tuple.
             /// TODO: Not always in second place. If there is a sampling key, then the third one. Fix it.
-            typeid_cast<ASTExpressionList &>(*typeid_cast<ASTFunction &>(*engine_ast).arguments).children.at(1) = tuple;
+            auto & storage_ast = typeid_cast<ASTStorage &>(ast);
+            typeid_cast<ASTExpressionList &>(*storage_ast.engine->arguments).children.at(1) = tuple;
         };
 
     context.getDatabase(database_name)->alterTable(
         context, table_name,
         new_columns, new_materialized_columns, new_alias_columns, new_column_defaults,
-        engine_modifier);
+        storage_modifier);
 
     materialized_columns = new_materialized_columns;
     alias_columns = new_alias_columns;
@@ -289,7 +291,7 @@ bool StorageMergeTree::merge(
     /// Clear old parts. It does not matter to do it more frequently than each second.
     if (auto lock = time_after_previous_cleanup.lockTestAndRestartAfter(1))
     {
-        data.clearOldParts();
+        data.clearOldPartsFromFilesystem();
         data.clearOldTemporaryDirectories();
     }
 
@@ -300,7 +302,7 @@ bool StorageMergeTree::merge(
     MergeTreeDataMerger::FuturePart future_part;
 
     /// You must call destructor with unlocked `currently_merging_mutex`.
-    std::experimental::optional<CurrentlyMergingPartsTagger> merging_tagger;
+    std::optional<CurrentlyMergingPartsTagger> merging_tagger;
 
     {
         std::lock_guard<std::mutex> lock(currently_merging_mutex);
@@ -335,7 +337,7 @@ bool StorageMergeTree::merge(
     Stopwatch stopwatch;
 
     auto new_part = merger.mergePartsToTemporaryPart(
-        future_part, *merge_entry_ptr, aio_threshold, time(0), merging_tagger->reserved_space.get(), deduplicate);
+        future_part, *merge_entry_ptr, aio_threshold, time(nullptr), merging_tagger->reserved_space.get(), deduplicate);
 
     merger.renameMergedTemporaryPart(new_part, future_part.parts, nullptr);
 
@@ -396,16 +398,16 @@ bool StorageMergeTree::mergeTask()
 }
 
 
-void StorageMergeTree::clearColumnInPartition(const ASTPtr & query, const Field & partition, const Field & column_name, const Settings &)
+void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Field & column_name, const Context & context)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.
-    auto merge_blocker = merger.cancel();
+    auto merge_blocker = merger.merges_blocker.cancel();
 
     /// We don't change table structure, only data in some parts, parts are locked inside alterDataPart() function
     auto lock_read_structure = lockStructure(false, __PRETTY_FUNCTION__);
 
-    String partition_id = data.getPartitionIDFromQuery(partition);
+    String partition_id = data.getPartitionIDFromQuery(partition, context);
     MergeTreeData::DataParts parts = data.getDataParts();
 
     std::vector<MergeTreeData::AlterDataPartTransactionPtr> transactions;
@@ -446,15 +448,25 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & query, const Field 
 }
 
 
-void StorageMergeTree::dropPartition(const ASTPtr & query, const Field & partition, bool detach, const Settings & settings)
+bool StorageMergeTree::optimize(
+    const ASTPtr & /*query*/, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
+{
+    String partition_id;
+    if (partition)
+        partition_id = data.getPartitionIDFromQuery(partition, context);
+    return merge(context.getSettingsRef().min_bytes_to_use_direct_io, true, partition_id, final, deduplicate);
+}
+
+
+void StorageMergeTree::dropPartition(const ASTPtr & /*query*/, const ASTPtr & partition, bool detach, const Context & context)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.
-    auto merge_blocker = merger.cancel();
+    auto merge_blocker = merger.merges_blocker.cancel();
     /// Waits for completion of merge and does not start new ones.
     auto lock = lockForAlter(__PRETTY_FUNCTION__);
 
-    String partition_id = data.getPartitionIDFromQuery(partition);
+    String partition_id = data.getPartitionIDFromQuery(partition, context);
 
     size_t removed_parts = 0;
     MergeTreeData::DataParts parts = data.getDataParts();
@@ -470,21 +482,21 @@ void StorageMergeTree::dropPartition(const ASTPtr & query, const Field & partiti
         if (detach)
             data.renameAndDetachPart(part, "");
         else
-            data.replaceParts({part}, {}, false);
+            data.removePartsFromWorkingSet({part}, false);
     }
 
-    LOG_INFO(log, (detach ? "Detached " : "Removed ") << removed_parts << " parts inside " << applyVisitor(FieldVisitorToString(), partition) << ".");
+    LOG_INFO(log, (detach ? "Detached " : "Removed ") << removed_parts << " parts inside partition ID " << partition_id << ".");
 }
 
 
-void StorageMergeTree::attachPartition(const ASTPtr & query, const Field & field, bool part, const Settings & settings)
+void StorageMergeTree::attachPartition(const ASTPtr & partition, bool part, const Context & context)
 {
     String partition_id;
 
     if (part)
-        partition_id = field.getType() == Field::Types::UInt64 ? toString(field.get<UInt64>()) : field.safeGet<String>();
+        partition_id = typeid_cast<const ASTLiteral &>(*partition).value.safeGet<String>();
     else
-        partition_id = data.getPartitionIDFromQuery(field);
+        partition_id = data.getPartitionIDFromQuery(partition, context);
 
     String source_dir = "detached/";
 
@@ -497,12 +509,12 @@ void StorageMergeTree::attachPartition(const ASTPtr & query, const Field & field
     else
     {
         LOG_DEBUG(log, "Looking for parts for partition " << partition_id << " in " << source_dir);
-        ActiveDataPartSet active_parts;
+        ActiveDataPartSet active_parts(data.format_version);
         for (Poco::DirectoryIterator it = Poco::DirectoryIterator(full_path + source_dir); it != Poco::DirectoryIterator(); ++it)
         {
             const String & name = it.name();
             MergeTreePartInfo part_info;
-            if (!MergeTreePartInfo::tryParsePartName(name, &part_info)
+            if (!MergeTreePartInfo::tryParsePartName(name, &part_info, data.format_version)
                 || part_info.partition_id != partition_id)
             {
                 continue;
@@ -532,12 +544,9 @@ void StorageMergeTree::attachPartition(const ASTPtr & query, const Field & field
 }
 
 
-void StorageMergeTree::freezePartition(const Field & partition, const String & with_name, const Settings & settings)
+void StorageMergeTree::freezePartition(const ASTPtr & partition, const String & with_name, const Context & context)
 {
-    /// The prefix can be arbitrary. Not necessarily a month - you can specify only a year.
-    data.freezePartition(partition.getType() == Field::Types::UInt64
-        ? toString(partition.get<UInt64>())
-        : partition.safeGet<String>(), with_name);
+    data.freezePartition(partition, with_name, context);
 }
 
 }
