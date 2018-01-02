@@ -6,12 +6,13 @@
 
 #include <Common/Stopwatch.h>
 
-#include <Core/Progress.h>
+#include <IO/Progress.h>
 
 #include <IO/CompressedReadBuffer.h>
 #include <IO/CompressedWriteBuffer.h>
 #include <IO/ReadBufferFromPocoSocket.h>
 #include <IO/WriteBufferFromPocoSocket.h>
+#include <IO/CompressionSettings.h>
 
 #include <IO/copyData.h>
 
@@ -597,7 +598,7 @@ void TCPHandler::receiveQuery()
     state.stage = QueryProcessingStage::Enum(stage);
 
     readVarUInt(compression, *in);
-    state.compression = Protocol::Compression::Enum(compression);
+    state.compression = static_cast<Protocol::Compression>(compression);
 
     readStringBinary(state.query, *in);
 }
@@ -624,8 +625,8 @@ bool TCPHandler::receiveData()
             /// If such a table does not exist, create it.
             if (!(storage = query_context.tryGetExternalTable(external_table_name)))
             {
-                NamesAndTypesListPtr columns = std::make_shared<NamesAndTypesList>(block.getColumnsList());
-                storage = StorageMemory::create(external_table_name, columns);
+                NamesAndTypesList columns = block.getNamesAndTypesList();
+                storage = StorageMemory::create(external_table_name, columns, NamesAndTypesList{}, NamesAndTypesList{}, ColumnDefaults{});
                 storage->startup();
                 query_context.addExternalTable(external_table_name, storage);
             }
@@ -663,7 +664,7 @@ void TCPHandler::initBlockOutput()
     {
         if (state.compression == Protocol::Compression::Enable)
             state.maybe_compressed_out = std::make_shared<CompressedWriteBuffer>(
-                *out, query_context.getSettingsRef().network_compression_method);
+                *out, CompressionSettings(query_context.getSettingsRef()));
         else
             state.maybe_compressed_out = out;
 

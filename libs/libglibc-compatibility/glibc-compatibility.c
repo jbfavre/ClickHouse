@@ -43,11 +43,14 @@ int __gai_sigqueue(int sig, const union sigval val, pid_t caller_pid)
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2  && __GLIBC_MINOR__ >= 16)
 long int __fdelt_chk(long int d)
+{
+    if (d < 0)
+        abort();
 #else
 unsigned long int __fdelt_chk(unsigned long int d)
-#endif
 {
-    if (d < 0 || d >= FD_SETSIZE)
+#endif
+    if (d >= FD_SETSIZE)
         abort();
     return d / __NFDBITS;
 }
@@ -64,27 +67,27 @@ int __poll_chk(struct pollfd * fds, nfds_t nfds, int timeout, size_t fdslen)
 
 #include <setjmp.h>
 
-void longjmp(jmp_buf env, int val);
+void musl_glibc_longjmp(jmp_buf env, int val);
 
 /// NOTE This disables some of FORTIFY_SOURCE functionality.
 
 void __longjmp_chk(jmp_buf env, int val)
 {
-    return longjmp(env, val);
+    musl_glibc_longjmp(env, val);
 }
 
 #include <stdarg.h>
 
 int vasprintf(char **s, const char *fmt, va_list ap);
 
-int __vasprintf_chk(char **s, const char *fmt, va_list ap)
+int __vasprintf_chk(char **s, int unused, const char *fmt, va_list ap)
 {
     return vasprintf(s, fmt, ap);
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, void *stream);
 
-size_t __fread_chk(void *ptr, size_t size, size_t nmemb, void *stream)
+size_t __fread_chk(void *ptr, size_t unused, size_t size, size_t nmemb, void *stream)
 {
     return fread(ptr, size, nmemb, stream);
 }
@@ -114,6 +117,11 @@ int __open_2(const char *path, int oflag)
 {
     return open(path, oflag);
 }
+
+
+/// No-ops.
+int pthread_setname_np(pthread_t thread, const char *name) { return 0; }
+int pthread_getname_np(pthread_t thread, char *name, size_t len) { name[0] = '\0'; return 0; };
 
 
 #if defined (__cplusplus)

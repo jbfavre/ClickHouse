@@ -128,7 +128,7 @@ bool ParserSubquery::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
 }
 
 
-bool ParserIdentifier::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
+bool ParserIdentifier::parseImpl(Pos & pos, ASTPtr & node, Expected &)
 {
     Pos begin = pos;
 
@@ -498,6 +498,8 @@ bool ParserStringLiteral::parseImpl(Pos & pos, ASTPtr & node, Expected & expecte
     if (pos->type != TokenType::StringLiteral)
         return false;
 
+    Pos begin = pos;
+
     String s;
     ReadBufferFromMemory in(pos->begin, pos->size());
 
@@ -518,7 +520,7 @@ bool ParserStringLiteral::parseImpl(Pos & pos, ASTPtr & node, Expected & expecte
     }
 
     ++pos;
-    node = std::make_shared<ASTLiteral>(StringRange(pos->begin, pos->end), s);
+    node = std::make_shared<ASTLiteral>(StringRange(begin, pos), s);
     return true;
 }
 
@@ -652,7 +654,7 @@ template class ParserAliasImpl<ParserIdentifier>;
 template class ParserAliasImpl<ParserTypeInCastExpression>;
 
 
-bool ParserAsterisk::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
+bool ParserAsterisk::parseImpl(Pos & pos, ASTPtr & node, Expected &)
 {
     Pos begin = pos;
     if (pos->type == TokenType::Asterisk)

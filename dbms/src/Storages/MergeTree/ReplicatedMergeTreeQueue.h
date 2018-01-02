@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Storages/MergeTree/ReplicatedMergeTreeLogEntry.h>
 #include <Storages/MergeTree/ActiveDataPartSet.h>
 #include <Storages/MergeTree/MergeTreeData.h>
@@ -37,6 +39,8 @@ private:
     using InsertsByTime = std::set<LogEntryPtr, ByTime>;
 
 
+    MergeTreeDataFormatVersion format_version;
+
     String zookeeper_path;
     String replica_path;
     String logger_name;
@@ -45,6 +49,10 @@ private:
       * In ZK records in chronological order. Here it is not necessary.
       */
     Queue queue;
+
+    /// If true, the queue in RAM is possibly out of sync with ZK and we need to reload it.
+    /// Protected by pull_logs_to_queue_mutex.
+    bool is_dirty = false;
 
     InsertsByTime inserts_by_time;
     time_t min_unprocessed_insert_time = 0;
@@ -77,7 +85,7 @@ private:
     void initVirtualParts(const MergeTreeData::DataParts & parts);
 
     /// Load (initialize) a queue from ZooKeeper (/replicas/me/queue/).
-    void load(zkutil::ZooKeeperPtr zookeeper);
+    bool load(zkutil::ZooKeeperPtr zookeeper);
 
     void insertUnlocked(LogEntryPtr & entry);
 
@@ -121,7 +129,11 @@ private:
     };
 
 public:
-    ReplicatedMergeTreeQueue() {}
+    ReplicatedMergeTreeQueue(MergeTreeDataFormatVersion format_version_)
+        : format_version(format_version_)
+        , virtual_parts(format_version)
+    {
+    }
 
     void initialize(const String & zookeeper_path_, const String & replica_path_, const String & logger_name_,
         const MergeTreeData::DataParts & parts, zkutil::ZooKeeperPtr zookeeper);

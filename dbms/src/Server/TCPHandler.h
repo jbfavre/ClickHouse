@@ -4,7 +4,7 @@
 
 #include <Common/CurrentMetrics.h>
 #include <Common/Stopwatch.h>
-#include <Core/Progress.h>
+#include <IO/Progress.h>
 #include <Core/Protocol.h>
 #include <Core/QueryProcessingStage.h>
 #include <DataStreams/BlockIO.h>
@@ -31,7 +31,7 @@ struct QueryState
     String query_id;
 
     QueryProcessingStage::Enum stage = QueryProcessingStage::Complete;
-    Protocol::Compression::Enum compression = Protocol::Compression::Disable;
+    Protocol::Compression compression = Protocol::Compression::Disable;
 
     /// From where to read data for INSERT.
     std::shared_ptr<ReadBuffer> maybe_compressed_in;

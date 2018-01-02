@@ -35,7 +35,7 @@ String ColumnGathererStream::getID() const
     std::stringstream res;
 
     res << getName() << "(";
-    for (size_t i = 0; i < children.size(); i++)
+    for (size_t i = 0; i < children.size(); ++i)
         res << (i == 0 ? "" : ", " ) << children[i]->getID();
     res << ")";
 
@@ -46,7 +46,7 @@ String ColumnGathererStream::getID() const
 void ColumnGathererStream::init()
 {
     sources.reserve(children.size());
-    for (size_t i = 0; i < children.size(); i++)
+    for (size_t i = 0; i < children.size(); ++i)
     {
         sources.emplace_back(children[i]->read(), name);
 
@@ -65,7 +65,7 @@ void ColumnGathererStream::init()
         if (i == 0)
         {
             column.name = name;
-            column.type = block.getByName(name).type->clone();
+            column.type = block.getByName(name).type;
             column.column = column.type->createColumn();
         }
 
@@ -89,8 +89,12 @@ Block ColumnGathererStream::readImpl()
         return Block();
 
     output_block = Block{column.cloneEmpty()};
-    output_block.getByPosition(0).column->gather(*this);
-    return std::move(output_block);
+    MutableColumnPtr output_column = output_block.getByPosition(0).column->mutate();
+    output_column->gather(*this);
+    if (!output_column->empty())
+        output_block.getByPosition(0).column = std::move(output_column);
+
+    return output_block;
 }
 
 
@@ -124,12 +128,15 @@ void ColumnGathererStream::readSuffixImpl()
         return;
 
     double seconds = profile_info.total_stopwatch.elapsedSeconds();
+    std::stringstream speed;
+    if (seconds)
+        speed << ", " << profile_info.rows / seconds << " rows/sec., "
+            << profile_info.bytes / 1048576.0 / seconds << " MiB/sec.";
     LOG_TRACE(log, std::fixed << std::setprecision(2)
         << "Gathered column " << name
         << " (" << static_cast<double>(profile_info.bytes) / profile_info.rows << " bytes/elem.)"
-        << " in " << seconds << " sec., "
-        << profile_info.rows / seconds << " rows/sec., "
-        << profile_info.bytes / 1048576.0 / seconds << " MiB/sec.");
+        << " in " << seconds << " sec."
+        << speed.str());
 }
 
 }

@@ -8,11 +8,14 @@
 #include <iomanip>
 #include <unordered_set>
 #include <algorithm>
-#include <experimental/optional>
+#include <optional>
 #include <boost/program_options.hpp>
 
 #include <Poco/File.h>
 #include <Poco/Util/Application.h>
+
+#include <common/readline_use.h>
+#include <common/find_first_symbols.h>
 
 #include <Common/ClickHouseRevision.h>
 #include <Common/Stopwatch.h>
@@ -22,7 +25,7 @@
 #include <Common/UnicodeBar.h>
 #include <Common/formatReadable.h>
 #include <Common/NetException.h>
-#include <common/readline_use.h>
+#include <Common/Throttler.h>
 #include <Common/typeid_cast.h>
 #include <Core/Types.h>
 #include <Core/QueryProcessingStage.h>
@@ -113,6 +116,7 @@ private:
     size_t format_max_block_size = 0;    /// Max block size for console output.
     String insert_format;                /// Format of INSERT data that is read from stdin in batch mode.
     size_t insert_format_max_block_size = 0; /// Max block size when reading INSERT data.
+    size_t max_client_network_bandwidth = 0; /// The maximum speed of data exchange over the network for the client in bytes per second.
 
     bool has_vertical_output_suffix = false; /// Is \G present at the end of the query string?
 
@@ -125,7 +129,7 @@ private:
     WriteBufferFromFileDescriptor std_out {STDOUT_FILENO};
     std::unique_ptr<ShellCommand> pager_cmd;
     /// The user can specify to redirect query output to a file.
-    std::experimental::optional<WriteBufferFromFile> out_file_buf;
+    std::optional<WriteBufferFromFile> out_file_buf;
     BlockOutputStreamPtr block_out_stream;
 
     String home_path;
@@ -146,6 +150,7 @@ private:
 
     /// If the last query resulted in exception.
     bool got_exception = false;
+    String server_version;
 
     Stopwatch watch;
 
@@ -180,13 +185,13 @@ private:
         context.setApplicationType(Context::ApplicationType::CLIENT);
 
         /// settings and limits could be specified in config file, but passed settings has higher priority
-#define EXTRACT_SETTING(TYPE, NAME, DEFAULT) \
+#define EXTRACT_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (config().has(#NAME) && !context.getSettingsRef().NAME.changed) \
             context.setSetting(#NAME, config().getString(#NAME));
         APPLY_FOR_SETTINGS(EXTRACT_SETTING)
 #undef EXTRACT_SETTING
 
-#define EXTRACT_LIMIT(TYPE, NAME, DEFAULT) \
+#define EXTRACT_LIMIT(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (config().has(#NAME) && !context.getSettingsRef().limits.NAME.changed) \
             context.setSetting(#NAME, config().getString(#NAME));
         APPLY_FOR_LIMITS(EXTRACT_LIMIT)
@@ -194,11 +199,11 @@ private:
     }
 
 
-    int main(const std::vector<std::string> & args)
+    int main(const std::vector<std::string> & /*args*/)
     {
         try
         {
-            return mainImpl(args);
+            return mainImpl();
         }
         catch (const Exception & e)
         {
@@ -261,7 +266,7 @@ private:
     }
 
 
-    int mainImpl(const std::vector<std::string> & args)
+    int mainImpl()
     {
         registerFunctions();
         registerAggregateFunctions();
@@ -375,13 +380,17 @@ private:
 
     void connect()
     {
+        auto encryption = config().getBool("ssl", false)
+        ? Protocol::Encryption::Enable
+        : Protocol::Encryption::Disable;
+
         String host = config().getString("host", "localhost");
-        UInt16 port = config().getInt("port", DBMS_DEFAULT_PORT);
+        UInt16 port = config().getInt("port", config().getInt(static_cast<bool>(encryption) ? "tcp_ssl_port" : "tcp_port", static_cast<bool>(encryption) ? DBMS_DEFAULT_SECURE_PORT : DBMS_DEFAULT_PORT));
         String default_database = config().getString("database", "");
         String user = config().getString("user", "");
         String password = config().getString("password", "");
 
-        Protocol::Compression::Enum compression = config().getBool("compression", true)
+        auto compression = config().getBool("compression", true)
             ? Protocol::Compression::Enable
             : Protocol::Compression::Disable;
 
@@ -393,24 +402,30 @@ private:
                 << "." << std::endl;
 
         connection = std::make_unique<Connection>(host, port, default_database, user, password, "client", compression,
+            encryption,
             Poco::Timespan(config().getInt("connect_timeout", DBMS_DEFAULT_CONNECT_TIMEOUT_SEC), 0),
             Poco::Timespan(config().getInt("receive_timeout", DBMS_DEFAULT_RECEIVE_TIMEOUT_SEC), 0),
             Poco::Timespan(config().getInt("send_timeout", DBMS_DEFAULT_SEND_TIMEOUT_SEC), 0));
 
+        String server_name;
+        UInt64 server_version_major = 0;
+        UInt64 server_version_minor = 0;
+        UInt64 server_revision = 0;
+
+        if (max_client_network_bandwidth)
+        {
+            ThrottlerPtr throttler = std::make_shared<Throttler>(max_client_network_bandwidth, 0,  "");
+            connection->setThrottler(throttler);
+        }
+
+        connection->getServerVersion(server_name, server_version_major, server_version_minor, server_revision);
+
+        server_version = toString(server_version_major) + "." + toString(server_version_minor) + "." + toString(server_revision);
         if (is_interactive)
         {
-            String server_name;
-            UInt64 server_version_major = 0;
-            UInt64 server_version_minor = 0;
-            UInt64 server_revision = 0;
-
-            connection->getServerVersion(server_name, server_version_major, server_version_minor, server_revision);
-
             std::cout << "Connected to " << server_name
-                << " server version " << server_version_major
-                << "." << server_version_minor
-                << "." << server_revision
-                << "." << std::endl << std::endl;
+                      << " server version " << server_version
+                      << "." << std::endl << std::endl;
         }
     }
 
@@ -515,23 +530,25 @@ private:
 
     void nonInteractive()
     {
-        String line;
+        String text;
+
         if (config().has("query"))
-            line = config().getString("query");
+            text = config().getString("query");
         else
         {
             /// If 'query' parameter is not set, read a query from stdin.
             /// The query is read entirely into memory (streaming is disabled).
             ReadBufferFromFileDescriptor in(STDIN_FILENO);
-            readStringUntilEOF(line, in);
+            readStringUntilEOF(text, in);
         }
 
-        process(line);
+        process(text);
     }
 
 
-    bool process(const String & line)
+    bool process(const String & text)
     {
+        const auto ignore_error = config().getBool("ignore-error", false);
         if (config().has("multiquery"))
         {
             /// Several queries separated by ';'.
@@ -539,36 +556,54 @@ private:
 
             String query;
 
-            const char * begin = line.data();
-            const char * end = begin + line.size();
+            const char * begin = text.data();
+            const char * end = begin + text.size();
 
             while (begin < end)
             {
                 const char * pos = begin;
                 ASTPtr ast = parseQuery(pos, end, true);
                 if (!ast)
+                {
+                    if (ignore_error)
+                    {
+                        Tokens tokens(begin, end);
+                        TokenIterator token_iterator(tokens);
+                        while (token_iterator->type != TokenType::Semicolon && token_iterator.isValid())
+                            ++token_iterator;
+                        begin = token_iterator->end;
+
+                        continue;
+                    }
                     return true;
+                }
 
                 ASTInsertQuery * insert = typeid_cast<ASTInsertQuery *>(&*ast);
 
                 if (insert && insert->data)
                 {
-                    pos = insert->data;
-                    while (*pos && *pos != '\n')
-                        ++pos;
+                    pos = find_first_symbols<'\n'>(insert->data, end);
                     insert->end = pos;
                 }
 
-                query = line.substr(begin - line.data(), pos - begin);
+                query = text.substr(begin - text.data(), pos - begin);
 
                 begin = pos;
                 while (isWhitespace(*begin) || *begin == ';')
                     ++begin;
 
-                if (!processSingleQuery(query, ast))
-                    return false;
+                try
+                {
+                    if (!processSingleQuery(query, ast) && !ignore_error)
+                        return false;
+                }
+                catch (...)
+                {
+                    std::cerr << "Error on processing query: " << query << std::endl << getCurrentExceptionMessage(true);
+                    got_exception = true;
+                }
 
-                if (got_exception)
+                if (got_exception && !ignore_error)
                 {
                     if (is_interactive)
                         break;
@@ -581,7 +616,7 @@ private:
         }
         else
         {
-            return processSingleQuery(line);
+            return processSingleQuery(text);
         }
     }
 
@@ -736,7 +771,9 @@ private:
         ParserQuery parser(end);
         ASTPtr res;
 
-        if (is_interactive)
+        const auto ignore_error = config().getBool("ignore-error", false);
+
+        if (is_interactive || ignore_error)
         {
             String message;
             res = tryParseQuery(parser, pos, end, message, true, "", allow_multi_statements);
@@ -827,7 +864,7 @@ private:
         if (out_file_buf)
         {
             out_file_buf->next();
-            out_file_buf = std::experimental::nullopt;
+            out_file_buf.reset();
         }
         std_out.next();
     }
@@ -944,6 +981,7 @@ private:
             String pager = config().getString("pager", "");
             if (!pager.empty())
             {
+                signal(SIGPIPE, SIG_IGN);
                 pager_cmd = ShellCommand::execute(pager, true);
                 out_buf = &pager_cmd->in;
             }
@@ -962,7 +1000,7 @@ private:
                     const auto & out_file_node = typeid_cast<const ASTLiteral &>(*query_with_output->out_file);
                     const auto & out_file = out_file_node.value.safeGet<std::string>();
                     out_file_buf.emplace(out_file, DBMS_DEFAULT_BUFFER_SIZE, O_WRONLY | O_EXCL | O_CREAT);
-                    out_buf = &out_file_buf.value();
+                    out_buf = &*out_file_buf;
 
                     // We are writing to file, so default format is the same as in non-interactive mode.
                     if (is_interactive && is_default_format)
@@ -1143,7 +1181,7 @@ private:
         if (std::string::npos != embedded_stack_trace_pos && !config().getBool("stacktrace", false))
             text.resize(embedded_stack_trace_pos);
 
-        std::cerr << "Received exception from server:" << std::endl
+        std::cerr << "Received exception from server (version " << server_version << "):" << std::endl
             << "Code: " << e.code() << ". " << text << std::endl;
     }
 
@@ -1236,8 +1274,8 @@ public:
             }
         }
 
-#define DECLARE_SETTING(TYPE, NAME, DEFAULT) (#NAME, boost::program_options::value<std::string> (), "Settings.h")
-#define DECLARE_LIMIT(TYPE, NAME, DEFAULT) (#NAME, boost::program_options::value<std::string> (), "Limits.h")
+#define DECLARE_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) (#NAME, boost::program_options::value<std::string> (), "Settings.h")
+#define DECLARE_LIMIT(TYPE, NAME, DEFAULT, DESCRIPTION) (#NAME, boost::program_options::value<std::string> (), "Limits.h")
 
         /// Main commandline options related to client functionality and all parameters from Settings.
         boost::program_options::options_description main_description("Main options");
@@ -1246,6 +1284,7 @@ public:
             ("config-file,c", boost::program_options::value<std::string>(), "config-file path")
             ("host,h", boost::program_options::value<std::string>()->default_value("localhost"), "server host")
             ("port", boost::program_options::value<int>()->default_value(9000), "server port")
+            ("ssl,s", "ssl")
             ("user,u", boost::program_options::value<std::string>(), "user")
             ("password", boost::program_options::value<std::string>(), "password")
             ("query,q", boost::program_options::value<std::string>(), "query")
@@ -1253,6 +1292,7 @@ public:
             ("pager", boost::program_options::value<std::string>(), "pager")
             ("multiline,m", "multiline")
             ("multiquery,n", "multiquery")
+            ("ignore-error", "Do not stop processing in multiquery mode")
             ("format,f", boost::program_options::value<std::string>(), "default output format")
             ("vertical,E", "vertical output format, same as --format=Vertical or FORMAT Vertical or \\G at end of command")
             ("time,t", "print query execution time to stderr in non-interactive mode (for benchmarks)")
@@ -1260,6 +1300,7 @@ public:
             ("progress", "print progress even in non-interactive mode")
             ("version,V", "print version information and exit")
             ("echo", "in batch mode, print query before execution")
+            ("max_client_network_bandwidth", boost::program_options::value<int>(), "the maximum speed of data exchange over the network for the client in bytes per second.")
             ("compression", boost::program_options::value<bool>(), "enable or disable compression")
             APPLY_FOR_SETTINGS(DECLARE_SETTING)
             APPLY_FOR_LIMITS(DECLARE_LIMIT)
@@ -1325,7 +1366,7 @@ public:
         }
 
         /// Extract settings and limits from the options.
-#define EXTRACT_SETTING(TYPE, NAME, DEFAULT) \
+#define EXTRACT_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (options.count(#NAME)) \
             context.setSetting(#NAME, options[#NAME].as<std::string>());
         APPLY_FOR_SETTINGS(EXTRACT_SETTING)
@@ -1346,6 +1387,8 @@ public:
 
         if (options.count("port") && !options["port"].defaulted())
             config().setInt("port", options["port"].as<int>());
+        if (options.count("ssl"))
+            config().setBool("ssl", true);
         if (options.count("user"))
             config().setString("user", options["user"].as<std::string>());
         if (options.count("password"))
@@ -1355,6 +1398,8 @@ public:
             config().setBool("multiline", true);
         if (options.count("multiquery"))
             config().setBool("multiquery", true);
+        if (options.count("ignore-error"))
+            config().setBool("ignore-error", true);
         if (options.count("format"))
             config().setString("format", options["format"].as<std::string>());
         if (options.count("vertical"))
@@ -1367,6 +1412,8 @@ public:
             config().setBool("echo", true);
         if (options.count("time"))
             print_time_to_stderr = true;
+        if (options.count("max_client_network_bandwidth"))
+            max_client_network_bandwidth = options["max_client_network_bandwidth"].as<int>();
         if (options.count("compression"))
             config().setBool("compression", options["compression"].as<bool>());
     }
