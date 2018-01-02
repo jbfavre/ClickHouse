@@ -47,7 +47,7 @@ std::string Service::getId(const std::string & node_id) const
 
 void Service::processQuery(const Poco::Net::HTMLForm & params, ReadBuffer & body, WriteBuffer & out, Poco::Net::HTTPServerResponse & response)
 {
-    if (is_cancelled)
+    if (blocker.isCancelled())
         throw Exception("Transferring part to replica was cancelled", ErrorCodes::ABORTED);
 
     String part_name = params.get("part");
@@ -120,9 +120,9 @@ void Service::processQuery(const Poco::Net::HTMLForm & params, ReadBuffer & body
 
             ReadBufferFromFile file_in(path);
             HashingWriteBuffer hashing_out(out);
-            copyData(file_in, hashing_out, is_cancelled);
+            copyData(file_in, hashing_out, blocker.getCounter());
 
-            if (is_cancelled)
+            if (blocker.isCancelled())
                 throw Exception("Transferring part to replica was cancelled", ErrorCodes::ABORTED);
 
             if (hashing_out.count() != size)
@@ -157,10 +157,14 @@ void Service::processQuery(const Poco::Net::HTMLForm & params, ReadBuffer & body
 
 MergeTreeData::DataPartPtr Service::findPart(const String & name)
 {
-    MergeTreeData::DataPartPtr part = data.getPartIfExists(name);
+    /// It is important to include PreCommitted and Outdated parts here because remote replicas cannot reliably
+    /// determine the local state of the part, so queries for the parts in these states are completely normal.
+    auto part = data.getPartIfExists(
+        name, {MergeTreeDataPartState::PreCommitted, MergeTreeDataPartState::Committed, MergeTreeDataPartState::Outdated});
     if (part)
         return part;
-    throw Exception("No part " + name + " in table");
+
+    throw Exception("No part " + name + " in table", ErrorCodes::NO_SUCH_DATA_PART);
 }
 
 MergeTreeData::DataPartPtr Service::findShardedPart(const String & name, size_t shard_no)
@@ -179,14 +183,6 @@ MergeTreeData::MutableDataPartPtr Fetcher::fetchPart(
     bool to_detached)
 {
     return fetchPartImpl(part_name, replica_path, host, port, "", to_detached);
-}
-
-MergeTreeData::MutableDataPartPtr Fetcher::fetchShardedPart(
-    const InterserverIOEndpointLocation & location,
-    const String & part_name,
-    size_t shard_no)
-{
-    return fetchPartImpl(part_name, location.name, location.host, location.port, toString(shard_no), true);
 }
 
 MergeTreeData::MutableDataPartPtr Fetcher::fetchPartImpl(
@@ -241,9 +237,9 @@ MergeTreeData::MutableDataPartPtr Fetcher::fetchPartImpl(
 
         WriteBufferFromFile file_out(absolute_part_path + file_name);
         HashingWriteBuffer hashing_out(file_out);
-        copyData(in, hashing_out, file_size, is_cancelled);
+        copyData(in, hashing_out, file_size, blocker.getCounter());
 
-        if (is_cancelled)
+        if (blocker.isCancelled())
         {
             /// NOTE The is_cancelled flag also makes sense to check every time you read over the network, performing a poll with a not very large timeout.
             /// And now we check it only between read chunks (in the `copyData` function).
@@ -266,7 +262,6 @@ MergeTreeData::MutableDataPartPtr Fetcher::fetchPartImpl(
 
     new_data_part->modification_time = time(nullptr);
     new_data_part->loadColumnsChecksumsIndexes(true, false);
-    new_data_part->is_sharded = false;
     new_data_part->checksums.checkEqual(checksums, false);
 
     return new_data_part;

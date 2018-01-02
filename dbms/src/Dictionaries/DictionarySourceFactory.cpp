@@ -49,7 +49,7 @@ Block createSampleBlock(const DictionaryStructure & dict_struct)
 
     if (dict_struct.id)
         block.insert(ColumnWithTypeAndName{
-            std::make_shared<ColumnUInt64>(1), std::make_shared<DataTypeUInt64>(), dict_struct.id.value().name});
+            std::make_shared<ColumnUInt64>(1), std::make_shared<DataTypeUInt64>(), dict_struct.id->name});
 
     if (dict_struct.key)
     {
@@ -65,7 +65,7 @@ Block createSampleBlock(const DictionaryStructure & dict_struct)
     if (dict_struct.range_min)
         for (const auto & attribute : { dict_struct.range_min, dict_struct.range_max })
             block.insert(ColumnWithTypeAndName{
-                std::make_shared<ColumnUInt16>(1), std::make_shared<DataTypeDate>(), attribute.value().name});
+                std::make_shared<ColumnUInt16>(1), std::make_shared<DataTypeDate>(), attribute->name});
 
     for (const auto & attribute : dict_struct.attributes)
     {
@@ -90,7 +90,7 @@ DictionarySourceFactory::DictionarySourceFactory()
 
 
 DictionarySourcePtr DictionarySourceFactory::create(
-    const std::string & name, Poco::Util::AbstractConfiguration & config, const std::string & config_prefix,
+    const std::string & name, const Poco::Util::AbstractConfiguration & config, const std::string & config_prefix,
     const DictionaryStructure & dict_struct, Context & context) const
 {
     Poco::Util::AbstractConfiguration::Keys keys;

@@ -50,7 +50,7 @@ void ReplicatedMergeTreeRestartingThread::run()
     constexpr auto retry_period_ms = 10 * 1000;
 
     /// The frequency of checking expiration of session in ZK.
-    Int64 check_period_ms = storage.data.settings.zookeeper_session_expiration_check_period * 1000;
+    Int64 check_period_ms = storage.data.settings.zookeeper_session_expiration_check_period.totalSeconds() * 1000;
 
     /// Periodicity of checking lag of replica.
     if (check_period_ms > static_cast<Int64>(storage.data.settings.check_delay_period) * 1000)
@@ -160,22 +160,22 @@ void ReplicatedMergeTreeRestartingThread::run()
 
     try
     {
-        storage.endpoint_holder->cancel();
-        storage.endpoint_holder = nullptr;
+        storage.data_parts_exchange_endpoint_holder->cancelForever();
+        storage.data_parts_exchange_endpoint_holder = nullptr;
 
-        storage.disk_space_monitor_endpoint_holder->cancel();
+        storage.disk_space_monitor_endpoint_holder->cancelForever();
         storage.disk_space_monitor_endpoint_holder = nullptr;
 
-        storage.sharded_partition_uploader_endpoint_holder->cancel();
+        storage.sharded_partition_uploader_endpoint_holder->cancelForever();
         storage.sharded_partition_uploader_endpoint_holder = nullptr;
 
-        storage.remote_query_executor_endpoint_holder->cancel();
+        storage.remote_query_executor_endpoint_holder->cancelForever();
         storage.remote_query_executor_endpoint_holder = nullptr;
 
-        storage.remote_part_checker_endpoint_holder->cancel();
+        storage.remote_part_checker_endpoint_holder->cancelForever();
         storage.remote_part_checker_endpoint_holder = nullptr;
 
-        storage.merger.cancelForever();
+        storage.merger.merges_blocker.cancelForever();
 
         partialShutdown();
 
@@ -261,7 +261,8 @@ void ReplicatedMergeTreeRestartingThread::removeFailedQuorumParts()
 
     for (auto part_name : failed_parts)
     {
-        auto part = storage.data.getPartIfExists(part_name);
+        auto part = storage.data.getPartIfExists(
+            part_name, {MergeTreeDataPartState::PreCommitted, MergeTreeDataPartState::Committed, MergeTreeDataPartState::Outdated});
         if (part)
         {
             LOG_DEBUG(log, "Found part " << part_name << " with failed quorum. Moving to detached. This shouldn't happen often.");
@@ -367,6 +368,7 @@ void ReplicatedMergeTreeRestartingThread::partialShutdown()
     storage.merge_selecting_event.set();
     storage.queue_updating_event->set();
     storage.alter_query_event->set();
+    storage.cleanup_thread_event.set();
     storage.replica_is_active_node = nullptr;
 
     LOG_TRACE(log, "Waiting for threads to finish");

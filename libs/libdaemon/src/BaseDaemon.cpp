@@ -161,10 +161,16 @@ static void terminateRequestedSignalHandler(int sig, siginfo_t * info, void * co
 }
 
 
+thread_local bool already_signal_handled = false;
+
 /** Обработчик некоторых сигналов. Выводит информацию в лог (если получится).
   */
 static void faultSignalHandler(int sig, siginfo_t * info, void * context)
 {
+    if (already_signal_handled)
+        return;
+    already_signal_handled = true;
+
     char buf[buf_size];
     DB::WriteBufferFromFileDescriptor out(signal_pipe.write_fd, buf_size, buf);
 
@@ -192,7 +198,7 @@ size_t backtraceLibUnwind(void ** out_frames, size_t max_frames, ucontext_t & co
 
     unw_cursor_t cursor;
 
-    if (unw_init_local_signal(&cursor, &context) < 0)
+    if (unw_init_local2(&cursor, &context, UNW_INIT_SIGNAL_FRAME) < 0)
         return 0;
 
     size_t i = 0;
@@ -396,7 +402,7 @@ private:
   */
 static void terminate_handler()
 {
-    static __thread bool terminating = false;
+    static thread_local bool terminating = false;
     if (terminating)
     {
         abort();
@@ -598,11 +604,13 @@ void BaseDaemon::buildLoggers()
         pf->setProperty("times", "local");
         Poco::AutoPtr<FormattingChannel> log = new FormattingChannel(pf);
         log_file = new FileChannel;
-        log_file->setProperty("path", Poco::Path(config().getString("logger.log")).absolute().toString());
-        log_file->setProperty("rotation", config().getRawString("logger.size", "100M"));
-        log_file->setProperty("archive", "number");
-        log_file->setProperty("compress", config().getRawString("logger.compress", "true"));
-        log_file->setProperty("purgeCount", config().getRawString("logger.count", "1"));
+        log_file->setProperty(Poco::FileChannel::PROP_PATH, Poco::Path(config().getString("logger.log")).absolute().toString());
+        log_file->setProperty(Poco::FileChannel::PROP_ROTATION, config().getRawString("logger.size", "100M"));
+        log_file->setProperty(Poco::FileChannel::PROP_ARCHIVE, "number");
+        log_file->setProperty(Poco::FileChannel::PROP_COMPRESS, config().getRawString("logger.compress", "true"));
+        log_file->setProperty(Poco::FileChannel::PROP_PURGECOUNT, config().getRawString("logger.count", "1"));
+        log_file->setProperty(Poco::FileChannel::PROP_FLUSH, config().getRawString("logger.flush", "true"));
+        log_file->setProperty(Poco::FileChannel::PROP_ROTATEONOPEN, config().getRawString("logger.rotateOnOpen", "false"));
         log->setChannel(log_file);
         split->addChannel(log);
         log_file->open();
@@ -616,11 +624,13 @@ void BaseDaemon::buildLoggers()
             pf->setProperty("times", "local");
             Poco::AutoPtr<FormattingChannel> errorlog = new FormattingChannel(pf);
             error_log_file = new FileChannel;
-            error_log_file->setProperty("path", Poco::Path(config().getString("logger.errorlog")).absolute().toString());
-            error_log_file->setProperty("rotation", config().getRawString("logger.size", "100M"));
-            error_log_file->setProperty("archive", "number");
-            error_log_file->setProperty("compress", config().getRawString("logger.compress", "true"));
-            error_log_file->setProperty("purgeCount", config().getRawString("logger.count", "1"));
+            error_log_file->setProperty(Poco::FileChannel::PROP_PATH, Poco::Path(config().getString("logger.errorlog")).absolute().toString());
+            error_log_file->setProperty(Poco::FileChannel::PROP_ROTATION, config().getRawString("logger.size", "100M"));
+            error_log_file->setProperty(Poco::FileChannel::PROP_ARCHIVE, "number");
+            error_log_file->setProperty(Poco::FileChannel::PROP_COMPRESS, config().getRawString("logger.compress", "true"));
+            error_log_file->setProperty(Poco::FileChannel::PROP_PURGECOUNT, config().getRawString("logger.count", "1"));
+            error_log_file->setProperty(Poco::FileChannel::PROP_FLUSH, config().getRawString("logger.flush", "true"));
+            error_log_file->setProperty(Poco::FileChannel::PROP_ROTATEONOPEN, config().getRawString("logger.rotateOnOpen", "false"));
             errorlog->setChannel(error_log_file);
             level->setChannel(errorlog);
             split->addChannel(level);
@@ -805,6 +815,13 @@ void BaseDaemon::initialize(Application & self)
 
     /// Ставим terminate_handler
     std::set_terminate(terminate_handler);
+
+    /// We want to avoid SIGPIPE when working with sockets and pipes, and just handle return value/errno instead.
+    {
+        sigset_t sig_set;
+        if (sigemptyset(&sig_set) || sigaddset(&sig_set, SIGPIPE) || pthread_sigmask(SIG_BLOCK, &sig_set, nullptr))
+            throw Poco::Exception("Cannot block signal.");
+    }
 
     /// Ставим обработчики сигналов
     auto add_signal_handler =

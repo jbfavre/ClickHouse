@@ -215,7 +215,7 @@ void Compiler::compile(
 
     std::stringstream command;
 
-    /// Slightly unconvenient.
+    /// Slightly inconvenient.
     command <<
         "LD_LIBRARY_PATH=" PATH_SHARE "/clickhouse/bin/"
         " " INTERNAL_COMPILER_EXECUTABLE
@@ -224,10 +224,12 @@ void Compiler::compile(
 #if INTERNAL_COMPILER_CUSTOM_ROOT
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/local/include/"
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/include/"
+        " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/local/include/c++/*/"
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/include/c++/*/"
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/include/x86_64-linux-gnu/"
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/include/x86_64-linux-gnu/c++/*/"
         " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/local/lib/clang/*/include/"
+        " -isystem " INTERNAL_COMPILER_HEADERS_ROOT "/usr/lib/clang/*/include/"
 #endif
         " -I " INTERNAL_COMPILER_HEADERS "/dbms/src/"
         " -I " INTERNAL_COMPILER_HEADERS "/contrib/libcityhash/include/"
