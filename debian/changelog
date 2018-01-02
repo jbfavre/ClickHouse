@@ -1,5 +1,5 @@
-clickhouse (1.1.54292+ds-1) unstable; urgency=medium
+clickhouse (1.1.54327+ds-1) unstable; urgency=medium
 
   * Initial release (Closes: #851574)
 
- -- Jean Baptiste Favre <debian@jbfavre.org>  Tue, 03 Oct 2017 10:33:23 +0200
+ -- Jean Baptiste Favre <debian@jbfavre.org>  Tue, 02 Jan 2018 15:30:45 +0100
