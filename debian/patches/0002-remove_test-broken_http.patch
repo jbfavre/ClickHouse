@@ -11,11 +11,11 @@ Last-Update: 2017-09-28
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/dbms/tests/queries/0_stateless/00429_http_bufferization.sh
 +++ b/dbms/tests/queries/0_stateless/00429_http_bufferization.sh
-@@ -47,7 +47,6 @@ function check_exception_handling() {
+@@ -48,7 +48,6 @@ function check_exception_handling() {
  
      check_only_exception         "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=1" 5000000
      check_only_exception         "max_result_bytes=4000000&wait_end_of_query=1" 5000000
--    check_last_line_exception     "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=0" 5000000
+-    check_last_line_exception    "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=0" 5000000
  }
  
  check_exception_handling

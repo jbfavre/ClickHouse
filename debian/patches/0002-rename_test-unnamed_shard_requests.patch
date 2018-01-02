@@ -1,291 +1,222 @@
-Description: Fix misnamed tests
- Some tests don't work when running a standalone clickhouse server
- They should be skipped because we use the --no-shard option
- But need to be renamed
-Author: Jean Baptiste Favre <debian@jbfavre.org>
-Origin: other
-Last-Update: 2017-09-28
----
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.reference
-+++ /dev/null
-@@ -1 +0,0 @@
--0
 --- /dev/null
-+++ b/dbms/tests/queries/0_stateless/00491_zookeeper_distributed_and_aliases_in_where_having.reference
-@@ -0,0 +1 @@
-+0
---- a/dbms/tests/queries/0_stateless/00491_distributed_and_aliases_in_where_having.sql
-+++ /dev/null
-@@ -1 +0,0 @@
--SELECT dummy FROM (SELECT dummy, NOT dummy AS x FROM remote('127.0.0.{1,2}', system.one) GROUP BY dummy HAVING x);
++++ b/dbms/tests/queries/0_stateless/00510_materialized_view_and_deduplication_zookeeper.reference
+@@ -0,0 +1,8 @@
++2
++3
++
++2
++3
++
++1
++1
 --- /dev/null
-+++ b/dbms/tests/queries/0_stateless/00491_zookeeper_distributed_and_aliases_in_where_having.sql
-@@ -0,0 +1 @@
-+SELECT dummy FROM (SELECT dummy, NOT dummy AS x FROM remote('127.0.0.{1,2}', system.one) GROUP BY dummy HAVING x);
---- a/dbms/tests/queries/0_stateless/00113_group_array.reference
-+++ /dev/null
-@@ -1,90 +0,0 @@
--0	100
--1	100
--2	100
--3	100
--4	100
--5	100
--6	100
--7	100
--8	100
--9	100
--
--0	1000000
--
--21
--41
--1000000	500000500000	1000000
--1000000	500000500000	1000000
--1000000	500000500000	1000000	500000500000
--1000000	500000500000	1000000	500000500000
--2000000	1000001000000	1000000
--2000000	1000001000000	1000000
--2000000	1000001000000	1000000	1000001000000
--
--512	1	512	512
--1024	1	1024	1024
--2048	1	1024	2048
--4096	1	1024	4096
--8192	1	1024	8192
--16384	1	1024	16384
--32768	1	1024	32768
--65536	1	1024	65536
--131072	1	1024	65536
--262144	1	1024	65536
--524288	1	1024	65536
--512	1	512	512
--1024	1	1024	1024
--2048	1	1024	2048
--4096	1	1024	4096
--8192	1	1024	8192
--16384	1	1024	16384
--32768	1	1024	32768
--65536	1	1024	65536
--131072	1	1024	65536
--262144	1	1024	65536
--524288	1	1024	65536
--512	1	512	512
--1024	1	1024	1024
--2048	1	1024	2048
--4096	1	1024	4096
--8192	1	1024	8192
--16384	1	1024	16384
--32768	1	1024	32768
--65536	1	1024	65536
--131072	1	1024	65536
--262144	1	1024	65536
--524288	1	1024	65536
--
--512	1	1024	1024
--1024	1	1500	2048
--2048	1	1500	4096
--4096	1	1500	8192
--8192	1	1500	16384
--16384	1	1500	32768
--32768	1	1500	65536
--65536	1	1500	70000
--131072	1	1500	70000
--262144	1	1500	70000
--524288	1	1500	70000
--512	1	1024	1024
--1024	1	1500	2048
--2048	1	1500	4096
--4096	1	1500	8192
--8192	1	1500	16384
--16384	1	1500	32768
--32768	1	1500	65536
--65536	1	1500	70000
--131072	1	1500	70000
--262144	1	1500	70000
--524288	1	1500	70000
--512	1	1024	1024
--1024	1	1500	2048
--2048	1	1500	4096
--4096	1	1500	8192
--8192	1	1500	16384
--16384	1	1500	32768
--32768	1	1500	65536
--65536	1	1500	70000
--131072	1	1500	70000
--262144	1	1500	70000
--524288	1	1500	70000
---- a/dbms/tests/queries/0_stateless/00113_group_array.sql
-+++ /dev/null
-@@ -1,37 +0,0 @@
--SELECT intDiv(number, 100) AS k, length(groupArray(number)) FROM (SELECT * FROM system.numbers LIMIT 1000000) GROUP BY k WITH TOTALS ORDER BY k LIMIT 10;
--
--SELECT '';
--SELECT length(toString(groupArrayState(toDate(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
--SELECT length(toString(groupArrayState(toDateTime(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
--
--DROP TABLE IF EXISTS test.numbers_mt;
--CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
--INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1000000;
--
--SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
--SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
--SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
--SELECT count(), sum(ns[1]), max(ns[1]), sum(ns[2])/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([number, number*10]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
--
--SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
--SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
--SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
--
--DROP TABLE test.numbers_mt;
--CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
--INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1048575;
--
--SELECT '';
--SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
--SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
--SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
--
--SELECT '';
--SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
--SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
--SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
--
--DROP TABLE test.numbers_mt;
--
---- Check binary compability:
---- clickhouse-client -h old -q "SELECT arrayReduce('groupArrayState', [['1'], ['22'], ['333']]) FORMAT RowBinary" | clickhouse-local --input-format RowBinary --structure "d AggregateFunction(groupArray2, Array(String))" -q "SELECT groupArray2Merge(d) FROM table"
---- /dev/null
-+++ b/dbms/tests/queries/0_stateless/00113_shard_group_array.reference
-@@ -0,0 +1,90 @@
-+0	100
-+1	100
-+2	100
-+3	100
-+4	100
-+5	100
-+6	100
-+7	100
-+8	100
-+9	100
++++ b/dbms/tests/queries/0_stateless/00510_materialized_view_and_deduplication_zookeeper.sql
+@@ -0,0 +1,51 @@
++SET experimental_allow_extended_storage_definition_syntax=1;
 +
-+0	1000000
++DROP TABLE IF EXISTS test.with_deduplication;
++DROP TABLE IF EXISTS test.without_deduplication;
++DROP TABLE IF EXISTS test.with_deduplication_mv;
++DROP TABLE IF EXISTS test.without_deduplication_mv;
 +
-+21
-+41
-+1000000	500000500000	1000000
-+1000000	500000500000	1000000
-+1000000	500000500000	1000000	500000500000
-+1000000	500000500000	1000000	500000500000
-+2000000	1000001000000	1000000
-+2000000	1000001000000	1000000
-+2000000	1000001000000	1000000	1000001000000
++CREATE TABLE test.with_deduplication(x UInt32)
++    ENGINE ReplicatedMergeTree('/clickhouse/tables/test/with_deduplication', 'r1') ORDER BY x;
++CREATE TABLE test.without_deduplication(x UInt32)
++    ENGINE ReplicatedMergeTree('/clickhouse/tables/test/without_deduplication', 'r1') ORDER BY x SETTINGS replicated_deduplication_window = 0;
 +
-+512	1	512	512
-+1024	1	1024	1024
-+2048	1	1024	2048
-+4096	1	1024	4096
-+8192	1	1024	8192
-+16384	1	1024	16384
-+32768	1	1024	32768
-+65536	1	1024	65536
-+131072	1	1024	65536
-+262144	1	1024	65536
-+524288	1	1024	65536
-+512	1	512	512
-+1024	1	1024	1024
-+2048	1	1024	2048
-+4096	1	1024	4096
-+8192	1	1024	8192
-+16384	1	1024	16384
-+32768	1	1024	32768
-+65536	1	1024	65536
-+131072	1	1024	65536
-+262144	1	1024	65536
-+524288	1	1024	65536
-+512	1	512	512
-+1024	1	1024	1024
-+2048	1	1024	2048
-+4096	1	1024	4096
-+8192	1	1024	8192
-+16384	1	1024	16384
-+32768	1	1024	32768
-+65536	1	1024	65536
-+131072	1	1024	65536
-+262144	1	1024	65536
-+524288	1	1024	65536
++CREATE MATERIALIZED VIEW test.with_deduplication_mv
++    ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/test/with_deduplication_mv', 'r1') ORDER BY dummy
++    AS SELECT 0 AS dummy, countState(x) AS cnt FROM test.with_deduplication;
++CREATE MATERIALIZED VIEW test.without_deduplication_mv
++    ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/test/without_deduplication_mv', 'r1') ORDER BY dummy
++    AS SELECT 0 AS dummy, countState(x) AS cnt FROM test.without_deduplication;
 +
-+512	1	1024	1024
-+1024	1	1500	2048
-+2048	1	1500	4096
-+4096	1	1500	8192
-+8192	1	1500	16384
-+16384	1	1500	32768
-+32768	1	1500	65536
-+65536	1	1500	70000
-+131072	1	1500	70000
-+262144	1	1500	70000
-+524288	1	1500	70000
-+512	1	1024	1024
-+1024	1	1500	2048
-+2048	1	1500	4096
-+4096	1	1500	8192
-+8192	1	1500	16384
-+16384	1	1500	32768
-+32768	1	1500	65536
-+65536	1	1500	70000
-+131072	1	1500	70000
-+262144	1	1500	70000
-+524288	1	1500	70000
-+512	1	1024	1024
-+1024	1	1500	2048
-+2048	1	1500	4096
-+4096	1	1500	8192
-+8192	1	1500	16384
-+16384	1	1500	32768
-+32768	1	1500	65536
-+65536	1	1500	70000
-+131072	1	1500	70000
-+262144	1	1500	70000
-+524288	1	1500	70000
---- /dev/null
-+++ b/dbms/tests/queries/0_stateless/00113_shard_group_array.sql
-@@ -0,0 +1,37 @@
-+SELECT intDiv(number, 100) AS k, length(groupArray(number)) FROM (SELECT * FROM system.numbers LIMIT 1000000) GROUP BY k WITH TOTALS ORDER BY k LIMIT 10;
++INSERT INTO test.with_deduplication VALUES (42);
++INSERT INTO test.with_deduplication VALUES (42);
++INSERT INTO test.with_deduplication VALUES (43);
++
++INSERT INTO test.without_deduplication VALUES (42);
++INSERT INTO test.without_deduplication VALUES (42);
++INSERT INTO test.without_deduplication VALUES (43);
++
++SELECT count() FROM test.with_deduplication;
++SELECT count() FROM test.without_deduplication;
++
++-- Implicit insert isn't deduplicated
++SELECT '';
++SELECT countMerge(cnt) FROM test.with_deduplication_mv;
++SELECT countMerge(cnt) FROM test.without_deduplication_mv;
++
++-- Explicit insert is deduplicated
++ALTER TABLE test.`.inner.with_deduplication_mv` DROP PARTITION ID 'all';
++ALTER TABLE test.`.inner.without_deduplication_mv` DROP PARTITION ID 'all';
++INSERT INTO test.`.inner.with_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
++INSERT INTO test.`.inner.with_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
++INSERT INTO test.`.inner.without_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
++INSERT INTO test.`.inner.without_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
 +
 +SELECT '';
-+SELECT length(toString(groupArrayState(toDate(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
-+SELECT length(toString(groupArrayState(toDateTime(number)))) FROM (SELECT * FROM system.numbers LIMIT 10);
++SELECT countMerge(cnt) FROM test.with_deduplication_mv;
++SELECT countMerge(cnt) FROM test.without_deduplication_mv;
 +
-+DROP TABLE IF EXISTS test.numbers_mt;
-+CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
-+INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1000000;
++DROP TABLE IF EXISTS test.with_deduplication;
++DROP TABLE IF EXISTS test.without_deduplication;
++DROP TABLE IF EXISTS test.with_deduplication_mv;
++DROP TABLE IF EXISTS test.without_deduplication_mv;
+--- a/dbms/tests/queries/0_stateless/00510_materizlized_view_and_deduplication.reference
++++ /dev/null
+@@ -1,8 +0,0 @@
+-2
+-3
+-
+-2
+-3
+-
+-1
+-1
+--- a/dbms/tests/queries/0_stateless/00510_materizlized_view_and_deduplication.sql
++++ /dev/null
+@@ -1,51 +0,0 @@
+-SET experimental_allow_extended_storage_definition_syntax=1;
+-
+-DROP TABLE IF EXISTS test.with_deduplication;
+-DROP TABLE IF EXISTS test.without_deduplication;
+-DROP TABLE IF EXISTS test.with_deduplication_mv;
+-DROP TABLE IF EXISTS test.without_deduplication_mv;
+-
+-CREATE TABLE test.with_deduplication(x UInt32)
+-    ENGINE ReplicatedMergeTree('/clickhouse/tables/test/with_deduplication', 'r1') ORDER BY x;
+-CREATE TABLE test.without_deduplication(x UInt32)
+-    ENGINE ReplicatedMergeTree('/clickhouse/tables/test/without_deduplication', 'r1') ORDER BY x SETTINGS replicated_deduplication_window = 0;
+-
+-CREATE MATERIALIZED VIEW test.with_deduplication_mv
+-    ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/test/with_deduplication_mv', 'r1') ORDER BY dummy
+-    AS SELECT 0 AS dummy, countState(x) AS cnt FROM test.with_deduplication;
+-CREATE MATERIALIZED VIEW test.without_deduplication_mv
+-    ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/test/without_deduplication_mv', 'r1') ORDER BY dummy
+-    AS SELECT 0 AS dummy, countState(x) AS cnt FROM test.without_deduplication;
+-
+-INSERT INTO test.with_deduplication VALUES (42);
+-INSERT INTO test.with_deduplication VALUES (42);
+-INSERT INTO test.with_deduplication VALUES (43);
+-
+-INSERT INTO test.without_deduplication VALUES (42);
+-INSERT INTO test.without_deduplication VALUES (42);
+-INSERT INTO test.without_deduplication VALUES (43);
+-
+-SELECT count() FROM test.with_deduplication;
+-SELECT count() FROM test.without_deduplication;
+-
+--- Implicit insert isn't deduplicated
+-SELECT '';
+-SELECT countMerge(cnt) FROM test.with_deduplication_mv;
+-SELECT countMerge(cnt) FROM test.without_deduplication_mv;
+-
+--- Explicit insert is deduplicated
+-ALTER TABLE test.`.inner.with_deduplication_mv` DROP PARTITION ID 'all';
+-ALTER TABLE test.`.inner.without_deduplication_mv` DROP PARTITION ID 'all';
+-INSERT INTO test.`.inner.with_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
+-INSERT INTO test.`.inner.with_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
+-INSERT INTO test.`.inner.without_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
+-INSERT INTO test.`.inner.without_deduplication_mv` SELECT 0 AS dummy, arrayReduce('countState', [toUInt32(42)]) AS cnt;
+-
+-SELECT '';
+-SELECT countMerge(cnt) FROM test.with_deduplication_mv;
+-SELECT countMerge(cnt) FROM test.without_deduplication_mv;
+-
+-DROP TABLE IF EXISTS test.with_deduplication;
+-DROP TABLE IF EXISTS test.without_deduplication;
+-DROP TABLE IF EXISTS test.with_deduplication_mv;
+-DROP TABLE IF EXISTS test.without_deduplication_mv;
+--- a/dbms/tests/queries/0_stateless/00506_union_distributed.reference
++++ /dev/null
+@@ -1,16 +0,0 @@
+-3	8
+-23	48
+-33	68
+-13	28
+-3	8
+-23	48
+-33	68
+-13	28
+-3	8
+-23	48
+-33	68
+-13	28
+-3	8
+-23	48
+-33	68
+-13	28
+--- a/dbms/tests/queries/0_stateless/00506_union_distributed.sql
++++ /dev/null
+@@ -1,24 +0,0 @@
+-
+--- https://github.com/yandex/ClickHouse/issues/1059
+-
+-DROP TABLE IF EXISTS test.union1;
+-DROP TABLE IF EXISTS test.union2;
+-DROP TABLE IF EXISTS test.union3;
+-
+-CREATE TABLE test.union1 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = MergeTree(date, (a, date), 8192);
+-CREATE TABLE test.union2 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = Distributed(test_shard_localhost, 'test', 'union1');
+-CREATE TABLE test.union3 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = Distributed(test_shard_localhost, 'test', 'union2');
+-
+-INSERT INTO test.union1 VALUES (1,  2, 3, 4, 5);
+-INSERT INTO test.union1 VALUES (11,12,13,14,15);
+-INSERT INTO test.union2 VALUES (21,22,23,24,25);
+-INSERT INTO test.union3 VALUES (31,32,33,34,35);
+-
+-select b, sum(c) from ( select a, b, sum(c) as c from test.union2 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union2 where b>1 group by a, b ) as a group by b;
+-select b, sum(c) from ( select a, b, sum(c) as c from test.union1 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union2 where b>1 group by a, b ) as a group by b;
+-select b, sum(c) from ( select a, b, sum(c) as c from test.union1 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union1 where b>1 group by a, b ) as a group by b;
+-select b, sum(c) from ( select a, b, sum(c) as c from test.union2 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union3 where b>1 group by a, b ) as a group by b;
+-
+-DROP TABLE test.union1;
+-DROP TABLE test.union2;
+-DROP TABLE test.union3;
+--- /dev/null
++++ b/dbms/tests/queries/0_stateless/00506_union_distributed_zookeeper.reference
+@@ -0,0 +1,16 @@
++3	8
++23	48
++33	68
++13	28
++3	8
++23	48
++33	68
++13	28
++3	8
++23	48
++33	68
++13	28
++3	8
++23	48
++33	68
++13	28
+--- /dev/null
++++ b/dbms/tests/queries/0_stateless/00506_union_distributed_zookeeper.sql
+@@ -0,0 +1,24 @@
 +
-+SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
-+SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
-+SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
-+SELECT count(), sum(ns[1]), max(ns[1]), sum(ns[2])/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([number, number*10]) AS ns FROM test.numbers_mt GROUP BY k) ARRAY JOIN ns;
++-- https://github.com/yandex/ClickHouse/issues/1059
 +
-+SELECT count(), sum(ns), max(ns) FROM (SELECT intDiv(number, 100) AS k, groupArray(number) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
-+SELECT count(), sum(toUInt64(ns)), max(toUInt64(ns)) FROM (SELECT intDiv(number, 100) AS k, groupArray(toString(number)) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
-+SELECT count(), sum(toUInt64(ns[1])), max(toUInt64(ns[1])), sum(toUInt64(ns[2]))/10 FROM (SELECT intDiv(number, 100) AS k, groupArray([toString(number), toString(number*10)]) AS ns FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k) ARRAY JOIN ns;
++DROP TABLE IF EXISTS test.union1;
++DROP TABLE IF EXISTS test.union2;
++DROP TABLE IF EXISTS test.union3;
 +
-+DROP TABLE test.numbers_mt;
-+CREATE TABLE test.numbers_mt (number UInt64) ENGINE = Log;
-+INSERT INTO test.numbers_mt SELECT * FROM system.numbers LIMIT 1, 1048575;
++CREATE TABLE test.union1 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = MergeTree(date, (a, date), 8192);
++CREATE TABLE test.union2 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = Distributed(test_shard_localhost, 'test', 'union1');
++CREATE TABLE test.union3 ( date Date, a Int32, b Int32, c Int32, d Int32) ENGINE = Distributed(test_shard_localhost, 'test', 'union2');
 +
-+SELECT '';
-+SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
-+SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
-+SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1024)(i)), length(groupArray(65536)(i)) AS s FROM test.numbers_mt GROUP BY k ORDER BY k LIMIT 9, 11;
++INSERT INTO test.union1 VALUES (1,  2, 3, 4, 5);
++INSERT INTO test.union1 VALUES (11,12,13,14,15);
++INSERT INTO test.union2 VALUES (21,22,23,24,25);
++INSERT INTO test.union3 VALUES (31,32,33,34,35);
 +
-+SELECT '';
-+SELECT roundToExp2(number) AS k, length(groupArray(1)(number AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
-+SELECT roundToExp2(number) AS k, length(groupArray(1)(hex(number) AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
-+SELECT roundToExp2(number) AS k, length(groupArray(1)([hex(number)] AS i)), length(groupArray(1500)(i)), length(groupArray(70000)(i)) AS s FROM remote('127.0.0.{1,2}', 'test', 'numbers_mt') GROUP BY k ORDER BY k LIMIT 9, 11;
++select b, sum(c) from ( select a, b, sum(c) as c from test.union2 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union2 where b>1 group by a, b ) as a group by b;
++select b, sum(c) from ( select a, b, sum(c) as c from test.union1 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union2 where b>1 group by a, b ) as a group by b;
++select b, sum(c) from ( select a, b, sum(c) as c from test.union1 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union1 where b>1 group by a, b ) as a group by b;
++select b, sum(c) from ( select a, b, sum(c) as c from test.union2 where a>1 group by a,b UNION ALL select a, b, sum(c) as c from test.union3 where b>1 group by a, b ) as a group by b;
 +
-+DROP TABLE test.numbers_mt;
-+
-+-- Check binary compability:
-+-- clickhouse-client -h old -q "SELECT arrayReduce('groupArrayState', [['1'], ['22'], ['333']]) FORMAT RowBinary" | clickhouse-local --input-format RowBinary --structure "d AggregateFunction(groupArray2, Array(String))" -q "SELECT groupArray2Merge(d) FROM table"
++DROP TABLE test.union1;
++DROP TABLE test.union2;
++DROP TABLE test.union3;
