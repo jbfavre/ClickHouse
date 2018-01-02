@@ -86,7 +86,7 @@ void ReplicatedMergeTreePartCheckThread::searchForMissingPart(const String & par
     }
 
     /// If the part is not in ZooKeeper, we'll check if it's at least somewhere.
-    auto part_info = MergeTreePartInfo::fromPartName(part_name);
+    auto part_info = MergeTreePartInfo::fromPartName(part_name, storage.data.format_version);
 
     /** The logic is as follows:
         * - if some live or inactive replica has such a part, or a part covering it
@@ -122,7 +122,7 @@ void ReplicatedMergeTreePartCheckThread::searchForMissingPart(const String & par
         Strings parts = zookeeper->getChildren(storage.zookeeper_path + "/replicas/" + replica + "/parts");
         for (const String & part_on_replica : parts)
         {
-            auto part_on_replica_info = MergeTreePartInfo::fromPartName(part_on_replica);
+            auto part_on_replica_info = MergeTreePartInfo::fromPartName(part_on_replica, storage.data.format_version);
 
             if (part_on_replica_info.contains(part_info))
             {
@@ -212,7 +212,12 @@ void ReplicatedMergeTreePartCheckThread::checkPart(const String & part_name)
     LOG_WARNING(log, "Checking part " << part_name);
     ProfileEvents::increment(ProfileEvents::ReplicatedPartChecks);
 
-    auto part = storage.data.getActiveContainingPart(part_name);
+    /// If the part is still in the PreCommitted -> Committed transition, it is not lost
+    /// and there is no need to go searching for it on other replicas. To definitely find the needed part
+    /// if it exists (or a part containing it) we first search among the PreCommitted parts.
+    auto part = storage.data.getPartIfExists(part_name, {MergeTreeDataPartState::PreCommitted});
+    if (!part)
+        part = storage.data.getActiveContainingPart(part_name);
 
     /// We do not have this or a covering part.
     if (!part)

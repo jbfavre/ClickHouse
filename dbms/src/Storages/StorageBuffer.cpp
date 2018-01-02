@@ -346,7 +346,7 @@ void StorageBuffer::shutdown()
 
     try
     {
-        optimize(nullptr /*query*/, {} /*partition_id*/, false /*final*/, false /*deduplicate*/, context.getSettings());
+        optimize(nullptr /*query*/, {} /*partition*/, false /*final*/, false /*deduplicate*/, context);
     }
     catch (...)
     {
@@ -365,9 +365,9 @@ void StorageBuffer::shutdown()
   *
   * This kind of race condition make very hard to implement proper tests.
   */
-bool StorageBuffer::optimize(const ASTPtr & query, const String & partition_id, bool final, bool deduplicate, const Settings & settings)
+bool StorageBuffer::optimize(const ASTPtr & query, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
 {
-    if (!partition_id.empty())
+    if (partition)
         throw Exception("Partition cannot be specified when optimizing table of type Buffer", ErrorCodes::NOT_IMPLEMENTED);
 
     if (final)
@@ -533,7 +533,9 @@ void StorageBuffer::writeBlockToDestination(const Block & block, StoragePtr tabl
             if (block.getByName(dst_col.name).type->getName() != dst_col.type->getName())
             {
                 LOG_ERROR(log, "Destination table " << destination_database << "." << destination_table
-                    << " have different type of column " << dst_col.name << ". Block of data is discarded.");
+                    << " have different type of column " << dst_col.name << " ("
+                    << block.getByName(dst_col.name).type->getName() << " != " << dst_col.type->getName()
+                    << "). Block of data is discarded.");
                 return;
             }
 
@@ -593,7 +595,7 @@ void StorageBuffer::alter(const AlterCommands & params, const String & database_
     auto lock = lockStructureForAlter(__PRETTY_FUNCTION__);
 
     /// So that no blocks of the old structure remain.
-    optimize({} /*query*/, {} /*partition_id*/, false /*final*/, false /*deduplicate*/, context.getSettings());
+    optimize({} /*query*/, {} /*partition_id*/, false /*final*/, false /*deduplicate*/, context);
 
     params.apply(*columns, materialized_columns, alias_columns, column_defaults);
 

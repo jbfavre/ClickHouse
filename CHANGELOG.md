@@ -1,3 +1,38 @@
+# ClickHouse release 1.1.54304
+
+## New features:
+* TLS support in the native protocol (to enable, set `tcp_ssl_port` in `config.xml`)
+
+## Bug fixes:
+* `ALTER` for replicated tables now tries to start running as soon as possible
+* Fixed crashing when reading data with the setting `preferred_block_size_bytes=0`
+* Fixed crashes of `clickhouse-client` when `Page Down` is pressed
+* Correct interpretation of certain complex queries with `GLOBAL IN` and `UNION ALL`
+* `FREEZE PARTITION` always works atomically now
+* Empty POST requests now return a response with code 411
+* Fixed interpretation errors for expressions like `CAST(1 AS Nullable(UInt8))`
+* Fixed an error when reading columns like `Array(Nullable(String))` from `MergeTree` tables
+* Fixed crashing when parsing queries like `SELECT dummy AS dummy, dummy AS b`
+* Users are updated correctly when `users.xml` is invalid
+* Correct handling when an executable dictionary returns a non-zero response code
+
+# ClickHouse release 1.1.54292
+
+## New features:
+* Added the `pointInPolygon` function for working with coordinates on a coordinate plane.
+* Added the `sumMap` aggregate function for calculating the sum of arrays, similar to `SummingMergeTree`.
+* Added the `trunc` function. Improved performance of the rounding functions (`round`, `floor`, `ceil`, `roundToExp2`) and corrected the logic of how they work. Changed the logic of the `roundToExp2` function for fractions and negative numbers.
+* The ClickHouse executable file is now less dependent on the libc version. The same ClickHouse executable file can run on a wide variety of Linux systems. Note: There is still a dependency when using compiled queries (with the setting `compile = 1`, which is not used by default). 
+* Reduced the time needed for dynamic compilation of queries.
+
+## Bug fixes:
+* Fixed an error that sometimes produced `part ... intersects previous part` messages and weakened replica consistency.
+* Fixed an error that caused the server to lock up if ZooKeeper was unavailable during shutdown.
+* Removed excessive logging when restoring replicas.
+* Fixed an error in the UNION ALL implementation.
+* Fixed an error in the concat function that occurred if the first column in a block has the Array type.
+* Progress is now displayed correctly in the system.merges table.
+
 # ClickHouse release 1.1.54289
 
 ## New features:
@@ -62,7 +97,7 @@ This is a bugfix release. The following bugs were fixed:
 
 ## Major changes:
 
-* Improved security: all server files are created with 0640 permissions.
+* Improved security: all server files are created with 0640 permissions (can be changed via <umask> config parameter). 
 * Improved error messages for queries with invalid syntax.
 * Significantly reduced memory consumption and improved performance when merging large sections of MergeTree data.
 * Significantly increased the performance of data merges for the ReplacingMergeTree engine.

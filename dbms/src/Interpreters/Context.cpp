@@ -16,18 +16,20 @@
 #include <Common/Stopwatch.h>
 #include <Common/formatReadable.h>
 #include <DataStreams/FormatFactory.h>
+#include <Databases/IDatabase.h>
 #include <Storages/IStorage.h>
 #include <Storages/MarkCache.h>
 #include <Storages/MergeTree/BackgroundProcessingPool.h>
 #include <Storages/MergeTree/ReshardingWorker.h>
 #include <Storages/MergeTree/MergeList.h>
 #include <Storages/MergeTree/MergeTreeSettings.h>
-#include <Storages/CompressionMethodSelector.h>
+#include <Storages/CompressionSettingsSelector.h>
 #include <Interpreters/Settings.h>
 #include <Interpreters/Users.h>
 #include <Interpreters/Quota.h>
 #include <Interpreters/EmbeddedDictionaries.h>
 #include <Interpreters/ExternalDictionaries.h>
+#include <Interpreters/ExternalModels.h>
 #include <Interpreters/ProcessList.h>
 #include <Interpreters/Cluster.h>
 #include <Interpreters/InterserverIOHandler.h>
@@ -42,7 +44,6 @@
 #include <Parsers/ASTCreateQuery.h>
 #include <Parsers/ParserCreateQuery.h>
 #include <Parsers/parseQuery.h>
-#include <Databases/IDatabase.h>
 
 #include <Common/ConfigProcessor.h>
 #include <Common/ZooKeeper/ZooKeeper.h>
@@ -94,6 +95,7 @@ struct ContextShared
     /// Separate mutex for access of dictionaries. Separate mutex to avoid locks when server doing request to itself.
     mutable std::mutex embedded_dictionaries_mutex;
     mutable std::mutex external_dictionaries_mutex;
+    mutable std::mutex external_models_mutex;
     /// Separate mutex for re-initialization of zookeer session. This operation could take a long time and must not interfere with another operations.
     mutable std::mutex zookeeper_mutex;
 
@@ -111,6 +113,7 @@ struct ContextShared
     FormatFactory format_factory;                           /// Formats.
     mutable std::shared_ptr<EmbeddedDictionaries> embedded_dictionaries;    /// Metrica's dictionaeis. Have lazy initialization.
     mutable std::shared_ptr<ExternalDictionaries> external_dictionaries;
+    mutable std::shared_ptr<ExternalModels> external_models;
     String default_profile_name;                            /// Default profile name used for default values.
     Users users;                                            /// Known users.
     Quotas quotas;                                          /// Known quotas for resource use.
@@ -126,8 +129,8 @@ struct ContextShared
     Macros macros;                                          /// Substitutions extracted from config.
     std::unique_ptr<Compiler> compiler;                     /// Used for dynamic compilation of queries' parts if it necessary.
     std::shared_ptr<DDLWorker> ddl_worker;                  /// Process ddl commands from zk.
-    /// Rules for selecting the compression method, depending on the size of the part.
-    mutable std::unique_ptr<CompressionMethodSelector> compression_method_selector;
+    /// Rules for selecting the compression settings, depending on the size of the part.
+    mutable std::unique_ptr<CompressionSettingsSelector> compression_settings_selector;
     std::unique_ptr<MergeTreeSettings> merge_tree_settings; /// Settings of MergeTree* engines.
     size_t max_table_size_to_drop = 50000000000lu;          /// Protects MergeTree tables from accidental DROP (50GB by default)
 
@@ -588,6 +591,11 @@ void Context::addDependency(const DatabaseAndTableName & from, const DatabaseAnd
     checkDatabaseAccessRights(from.first);
     checkDatabaseAccessRights(where.first);
     shared->view_dependencies[from].insert(where);
+
+    // Notify table of dependencies change
+    auto table = tryGetTable(from.first, from.second);
+    if (table != nullptr)
+        table->updateDependencies();
 }
 
 void Context::removeDependency(const DatabaseAndTableName & from, const DatabaseAndTableName & where)
@@ -596,6 +604,11 @@ void Context::removeDependency(const DatabaseAndTableName & from, const Database
     checkDatabaseAccessRights(from.first);
     checkDatabaseAccessRights(where.first);
     shared->view_dependencies[from].erase(where);
+
+    // Notify table of dependencies change
+    auto table = tryGetTable(from.first, from.second);
+    if (table != nullptr)
+        table->updateDependencies();
 }
 
 Dependencies Context::getDependencies(const String & database_name, const String & table_name) const
@@ -603,7 +616,15 @@ Dependencies Context::getDependencies(const String & database_name, const String
     auto lock = getLock();
 
     String db = resolveDatabase(database_name, current_database);
-    checkDatabaseAccessRights(db);
+
+    if (database_name.empty() && tryGetExternalTable(table_name))
+    {
+        /// Table is temporary. Access granted.
+    }
+    else
+    {
+        checkDatabaseAccessRights(db);
+    }
 
     ViewDependencies::const_iterator iter = shared->view_dependencies.find(DatabaseAndTableName(db, table_name));
     if (iter == shared->view_dependencies.end())
@@ -1044,6 +1065,17 @@ ExternalDictionaries & Context::getExternalDictionaries()
 }
 
 
+const ExternalModels & Context::getExternalModels() const
+{
+    return getExternalModelsImpl(false);
+}
+
+ExternalModels & Context::getExternalModels()
+{
+    return getExternalModelsImpl(false);
+}
+
+
 EmbeddedDictionaries & Context::getEmbeddedDictionariesImpl(const bool throw_on_error) const
 {
     std::lock_guard<std::mutex> lock(shared->embedded_dictionaries_mutex);
@@ -1069,6 +1101,19 @@ ExternalDictionaries & Context::getExternalDictionariesImpl(const bool throw_on_
     return *shared->external_dictionaries;
 }
 
+ExternalModels & Context::getExternalModelsImpl(bool throw_on_error) const
+{
+    std::lock_guard<std::mutex> lock(shared->external_models_mutex);
+
+    if (!shared->external_models)
+    {
+        if (!this->global_context)
+            throw Exception("Logical error: there is no global context", ErrorCodes::LOGICAL_ERROR);
+        shared->external_models = std::make_shared<ExternalModels>(*this->global_context, throw_on_error);
+    }
+
+    return *shared->external_models;
+}
 
 void Context::tryCreateEmbeddedDictionaries() const
 {
@@ -1079,6 +1124,12 @@ void Context::tryCreateEmbeddedDictionaries() const
 void Context::tryCreateExternalDictionaries() const
 {
     static_cast<void>(getExternalDictionariesImpl(true));
+}
+
+
+void Context::tryCreateExternalModels() const
+{
+    static_cast<void>(getExternalModelsImpl(true));
 }
 
 
@@ -1339,7 +1390,7 @@ QueryLog & Context::getQueryLog()
                 "query_log.flush_interval_milliseconds", DEFAULT_QUERY_LOG_FLUSH_INTERVAL_MILLISECONDS);
 
         system_logs->query_log = std::make_unique<QueryLog>(
-            *global_context, database, table, "MergeTree(event_date, event_time, 1024)", flush_interval_milliseconds);
+            *global_context, database, table, "ENGINE = MergeTree(event_date, event_time, 1024)", flush_interval_milliseconds);
     }
 
     return *system_logs->query_log;
@@ -1376,30 +1427,31 @@ PartLog * Context::getPartLog(const String & database, const String & table)
 
         size_t flush_interval_milliseconds = config.getUInt64(
                 "part_log.flush_interval_milliseconds", DEFAULT_QUERY_LOG_FLUSH_INTERVAL_MILLISECONDS);
-        system_logs->part_log = std::make_unique<PartLog>(*global_context, part_log_database, part_log_table,
-                                                     "MergeTree(event_date, event_time, 1024)", flush_interval_milliseconds);
+        system_logs->part_log = std::make_unique<PartLog>(
+            *global_context, part_log_database, part_log_table,
+            "ENGINE = MergeTree(event_date, event_time, 1024)", flush_interval_milliseconds);
     }
 
     return system_logs->part_log.get();
 }
 
 
-CompressionMethod Context::chooseCompressionMethod(size_t part_size, double part_size_ratio) const
+CompressionSettings Context::chooseCompressionSettings(size_t part_size, double part_size_ratio) const
 {
     auto lock = getLock();
 
-    if (!shared->compression_method_selector)
+    if (!shared->compression_settings_selector)
     {
         constexpr auto config_name = "compression";
         auto & config = getConfigRef();
 
         if (config.has(config_name))
-            shared->compression_method_selector = std::make_unique<CompressionMethodSelector>(config, "compression");
+            shared->compression_settings_selector = std::make_unique<CompressionSettingsSelector>(config, "compression");
         else
-            shared->compression_method_selector = std::make_unique<CompressionMethodSelector>();
+            shared->compression_settings_selector = std::make_unique<CompressionSettingsSelector>();
     }
 
-    return shared->compression_method_selector->choose(part_size, part_size_ratio);
+    return shared->compression_settings_selector->choose(part_size, part_size_ratio);
 }
 
 
