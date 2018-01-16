@@ -3,3 +3,4 @@
 0002-rename_test-unnamed_shard_requests.patch
 0002-fix_test-progress_in_http_headers.patch
 0002-remove_test-broken_http.patch
+0002-fix-test-issue-1724.patch
