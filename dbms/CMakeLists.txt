@@ -18,6 +18,8 @@ get_property (BUILD_INCLUDE_DIRECTORIES DIRECTORY ${ClickHouse_SOURCE_DIR} PROPE
 string (TIMESTAMP BUILD_DATE "%Y-%m-%d" UTC)
 configure_file (${CMAKE_CURRENT_SOURCE_DIR}/src/Common/config_build.cpp.in ${CONFIG_BUILD})
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
+
 if (NOT NO_WERROR)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -27,16 +29,15 @@ find_package (Threads)
 
 add_subdirectory (src)
 
-add_library(string_utils
-    src/Common/StringUtils.h
-    src/Common/StringUtils.cpp)
-target_include_directories (string_utils PRIVATE ${DBMS_INCLUDE_DIR})
-
 set(dbms_headers)
 set(dbms_sources)
 
 include(${ClickHouse_SOURCE_DIR}/cmake/dbms_glob_sources.cmake)
-add_headers_and_sources(dbms src/Parsers)
+
+add_headers_and_sources(clickhouse_common_io src/Common)
+add_headers_and_sources(clickhouse_common_io src/Common/HashTable)
+add_headers_and_sources(clickhouse_common_io src/IO)
+
 add_headers_and_sources(dbms src/Analyzers)
 add_headers_and_sources(dbms src/Core)
 add_headers_and_sources(dbms src/DataStreams)
@@ -44,65 +45,55 @@ add_headers_and_sources(dbms src/DataTypes)
 add_headers_and_sources(dbms src/Databases)
 add_headers_and_sources(dbms src/Dictionaries)
 add_headers_and_sources(dbms src/Dictionaries/Embedded)
+add_headers_and_sources(dbms src/Dictionaries/Embedded/GeodataProviders)
 add_headers_and_sources(dbms src/Interpreters)
 add_headers_and_sources(dbms src/Interpreters/ClusterProxy)
-add_headers_and_sources(dbms src/Common)
-add_headers_and_sources(dbms src/Common/HashTable)
-add_headers_and_sources(dbms src/Common/ZooKeeper)
-add_headers_and_sources(dbms src/IO)
 add_headers_and_sources(dbms src/Columns)
 add_headers_and_sources(dbms src/Storages)
 add_headers_and_sources(dbms src/Storages/Distributed)
 add_headers_and_sources(dbms src/Storages/MergeTree)
-add_headers_and_sources(dbms src/Core)
 add_headers_and_sources(dbms src/Client)
 add_headers_only(dbms src/Server)
 
-list (APPEND dbms_sources ${CONFIG_BUILD})
-list (APPEND dbms_headers ${CONFIG_VERSION} ${CONFIG_COMMON})
+list (APPEND clickhouse_common_io_sources ${CONFIG_BUILD})
+list (APPEND clickhouse_common_io_headers ${CONFIG_VERSION} ${CONFIG_COMMON})
 
 list (APPEND dbms_sources src/Functions/IFunction.cpp src/Functions/FunctionFactory.cpp src/Functions/FunctionHelpers.cpp)
 list (APPEND dbms_headers src/Functions/IFunction.h src/Functions/FunctionFactory.h src/Functions/FunctionHelpers.h)
 
 list (APPEND dbms_sources
     src/AggregateFunctions/AggregateFunctionFactory.cpp
+    src/AggregateFunctions/AggregateFunctionCombinatorFactory.cpp
     src/AggregateFunctions/AggregateFunctionState.cpp
-    src/AggregateFunctions/AggregateFunctionArray.cpp
-    src/AggregateFunctions/AggregateFunctionNull.cpp
-    src/AggregateFunctions/AggregateFunctionForEach.cpp
-    src/AggregateFunctions/AggregateFunctionIf.cpp
-    src/AggregateFunctions/AggregateFunctionMerge.cpp
-    src/AggregateFunctions/AggregateFunctionCount.cpp
+    src/AggregateFunctions/FactoryHelpers.cpp
     src/AggregateFunctions/parseAggregateFunctionParameters.cpp)
 
 list (APPEND dbms_headers
     src/AggregateFunctions/IAggregateFunction.h
+    src/AggregateFunctions/IAggregateFunctionCombinator.h
     src/AggregateFunctions/AggregateFunctionFactory.h
+    src/AggregateFunctions/AggregateFunctionCombinatorFactory.h
     src/AggregateFunctions/AggregateFunctionState.h
-    src/AggregateFunctions/AggregateFunctionArray.h
-    src/AggregateFunctions/AggregateFunctionNull.h
-    src/AggregateFunctions/AggregateFunctionForEach.h
-    src/AggregateFunctions/AggregateFunctionIf.h
-    src/AggregateFunctions/AggregateFunctionMerge.h
-    src/AggregateFunctions/AggregateFunctionCount.h
+    src/AggregateFunctions/FactoryHelpers.h
     src/AggregateFunctions/parseAggregateFunctionParameters.h)
 
 list (APPEND dbms_sources src/TableFunctions/TableFunctionFactory.cpp)
 list (APPEND dbms_headers src/TableFunctions/ITableFunction.h src/TableFunctions/TableFunctionFactory.h)
 
-
-list(REMOVE_ITEM dbms_sources
-    src/Common/StringUtils.cpp)
-
 if (APPLE OR CMAKE_SYSTEM MATCHES "FreeBSD")
-    list(REMOVE_ITEM dbms_headers
+    list(REMOVE_ITEM clickhouse_common_io_headers
         src/Common/AIO.h
         src/IO/WriteBufferAIO.h
         src/IO/ReadBufferAIO.h)
-    list(REMOVE_ITEM dbms_sources
+    list(REMOVE_ITEM clickhouse_common_io_sources
         src/IO/ReadBufferAIO.cpp
         src/IO/WriteBufferAIO.cpp)
 endif()
+
+add_library(clickhouse_common_io ${SPLIT_SHARED} ${clickhouse_common_io_headers} ${clickhouse_common_io_sources})
+
+add_subdirectory(src/Common/ZooKeeper)
+add_subdirectory(src/Common/ConfigProcessor)
 
 if (MAKE_STATIC_LIBRARIES)
     add_library(dbms ${dbms_headers} ${dbms_sources})
@@ -138,31 +129,45 @@ if (NOT ARCH_ARM)
     set (LINK_LIBRARIES_ONLY_ON_X86_64 cpuid)
 endif()
 
-if (CMAKE_SYSTEM MATCHES "FreeBSD")
-    set(PLATFORM_LIBS "execinfo")
-else()
-    set(PLATFORM_LIBS "")
-endif()
-
-target_link_libraries (dbms
+target_link_libraries (clickhouse_common_io
     common
-    ${MYSQLXX_LIBRARY}
-    ${FARMHASH_LIBRARIES}
-    ${METROHASH_LIBRARIES}
+    string_utils
+    ${LINK_LIBRARIES_ONLY_ON_X86_64}
     ${LZ4_LIBRARY}
     ${ZSTD_LIBRARY}
     ${ZOOKEEPER_LIBRARY}
-    string_utils
     ${DOUBLE_CONVERSION_LIBRARIES}
+    ${Poco_Net_LIBRARY}
+    ${Poco_Data_LIBRARY}
     ${ZLIB_LIBRARIES}
-    ${LINK_LIBRARIES_ONLY_ON_X86_64}
+    ${EXECINFO_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+)
+
+target_link_libraries (dbms
+    clickhouse_parsers
+    clickhouse_common_configprocessor
+    clickhouse_common_io
+    ${MYSQLXX_LIBRARY}
+    ${FARMHASH_LIBRARIES}
+    ${METROHASH_LIBRARIES}
     ${RE2_LIBRARY}
     ${RE2_ST_LIBRARY}
     ${OPENSSL_CRYPTO_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Poco_Data_LIBRARY}
     ${BTRIE_LIBRARIES}
 )
+
+if (NOT USE_INTERNAL_RE2_LIBRARY)
+    target_include_directories (dbms BEFORE PRIVATE ${RE2_INCLUDE_DIR})
+endif ()
+
+if (NOT USE_INTERNAL_ZOOKEEPER_LIBRARY)
+    target_include_directories (clickhouse_common_io BEFORE PUBLIC ${ZOOKEEPER_INCLUDE_DIR})
+endif ()
+
+if (NOT USE_INTERNAL_BOOST_LIBRARY)
+    target_include_directories (clickhouse_common_io BEFORE PUBLIC ${Boost_INCLUDE_DIRS})
+endif ()
 
 if (Poco_DataODBC_FOUND)
     target_link_libraries (dbms ${Poco_DataODBC_LIBRARY})
@@ -173,23 +178,33 @@ if (Poco_MongoDB_FOUND)
 endif()
 
 if (Poco_NetSSL_FOUND)
-    target_link_libraries (dbms ${Poco_NetSSL_LIBRARY})
+    target_link_libraries (clickhouse_common_io ${Poco_NetSSL_LIBRARY})
 endif()
 
 target_link_libraries (dbms ${Poco_Foundation_LIBRARY})
 
 if (USE_ICU)
     target_link_libraries (dbms ${ICU_LIBS})
+    target_include_directories (dbms PRIVATE ${ICU_INCLUDE_DIR})
 endif ()
 
 if (USE_CAPNP)
-    target_link_libraries (dbms ${CAPNP_LIBS})
+    target_link_libraries (dbms ${CAPNP_LIBRARY})
+    if (NOT USE_INTERNAL_CAPNP_LIBRARY)
+        target_include_directories (dbms BEFORE PRIVATE ${CAPNP_INCLUDE_DIR})
+    endif ()
+endif ()
+
+if (USE_RDKAFKA)
+    target_link_libraries (dbms ${RDKAFKA_LIBRARY})
+    if (NOT USE_INTERNAL_RDKAFKA_LIBRARY)
+        target_include_directories (dbms BEFORE PRIVATE ${RDKAFKA_INCLUDE_DIR})
+    endif ()
 endif ()
 
 target_link_libraries (dbms
-    ${PLATFORM_LIBS}
     ${CMAKE_DL_LIBS}
-    ${CMAKE_THREAD_LIBS_INIT}
+    Threads::Threads
 )
 
 target_include_directories (dbms BEFORE PRIVATE ${DIVIDE_INCLUDE_DIR})
@@ -203,19 +218,31 @@ if (NOT USE_INTERNAL_ZSTD_LIBRARY)
 endif ()
 
 target_include_directories (dbms PUBLIC ${DBMS_INCLUDE_DIR})
-target_include_directories (dbms PUBLIC ${PCG_RANDOM_INCLUDE_DIR})
+target_include_directories (clickhouse_common_io PUBLIC ${DBMS_INCLUDE_DIR})
+target_include_directories (clickhouse_common_io PUBLIC ${PCG_RANDOM_INCLUDE_DIR})
+target_include_directories (clickhouse_common_io BEFORE PUBLIC ${DOUBLE_CONVERSION_INCLUDE_DIR})
 
-if (USE_RDKAFKA)
-    target_link_libraries (dbms ${RDKAFKA_LIBRARY})
-endif ()
+# also for copy_headers.sh:
+target_include_directories (clickhouse_common_io BEFORE PRIVATE ${COMMON_INCLUDE_DIR})
 
-# only for copy_headers.sh:
-target_include_directories (dbms BEFORE PRIVATE ${COMMON_INCLUDE_DIR})
-target_include_directories (dbms BEFORE PRIVATE ${DOUBLE_CONVERSION_INCLUDE_DIR})
-
+add_subdirectory (tests)
 
 if (ENABLE_TESTS)
-    add_subdirectory (tests)
+    include (${PROJECT_SOURCE_DIR}/cmake/find_gtest.cmake)
+
+    if (USE_INTERNAL_GTEST_LIBRARY)
+        # Google Test from sources
+        add_subdirectory(${ClickHouse_SOURCE_DIR}/contrib/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/googletest)
+        # avoid problems with <regexp.h>
+        target_compile_definitions (gtest INTERFACE GTEST_HAS_POSIX_RE=0)
+        target_include_directories (gtest INTERFACE ${ClickHouse_SOURCE_DIR}/contrib/googletest/include)
+    endif ()
+
+    macro(grep_gtest_sources BASE_DIR DST_VAR)
+        # Cold match files that are not in tests/ directories
+        file(GLOB_RECURSE "${DST_VAR}" RELATIVE "${BASE_DIR}" "gtest*.cpp")
+    endmacro()
+
     # attach all dbms gtest sources
     grep_gtest_sources(${ClickHouse_SOURCE_DIR}/dbms dbms_gtest_sources)
     add_executable(unit_tests_dbms ${dbms_gtest_sources})

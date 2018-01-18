@@ -2,4 +2,4 @@ ClickHouse is an open-source column-oriented database management system that all
 
 [Read more...](https://clickhouse.yandex/)
 
-[ClickHouse Community Meetup in Palo Alto on October 25, 2017](http://bit.ly/clickhouse-meetup-palo-alto-october-2017)
+[![Build Status](https://travis-ci.org/yandex/ClickHouse.svg?branch=master)](https://travis-ci.org/yandex/ClickHouse)

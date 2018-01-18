@@ -28,12 +28,14 @@ public:
 
         res->children.clear();
 
-        if (type) {
-            res->type = type->clone();
+        if (type)
+        {
+            res->type = type;
             res->children.push_back(res->type);
         }
 
-        if (default_expression) {
+        if (default_expression)
+        {
             res->default_expression = default_expression->clone();
             res->children.push_back(res->default_expression);
         }

@@ -90,13 +90,9 @@ namespace ErrorCodes
 
 class MergeTreeData : public ITableDeclaration
 {
-    friend class ReshardingWorker;
-
 public:
     /// Function to call if the part is suspected to contain corrupt data.
     using BrokenPartCallback = std::function<void (const String &)>;
-    /// Callback to delete outdated parts immediately
-    using PartsCleanCallback = std::function<void ()>;
     using DataPart = MergeTreeDataPart;
 
     using MutableDataPartPtr = std::shared_ptr<DataPart>;
@@ -148,10 +144,6 @@ public:
 
     using DataParts = std::set<DataPartPtr, LessDataPart>;
     using DataPartsVector = std::vector<DataPartPtr>;
-
-    /// For resharding.
-    using MutableDataParts = std::set<MutableDataPartPtr, LessDataPart>;
-    using PerShardDataParts = std::unordered_map<size_t, MutableDataPartPtr>;
 
     /// Some operations on the set of parts return a Transaction object.
     /// If neither commit() nor rollback() was called, the destructor rollbacks the operation.
@@ -281,29 +273,26 @@ public:
     ///     Otherwise, partition_expr_ast is used for partitioning.
     /// require_part_metadata - should checksums.txt and columns.txt exist in the part directory.
     /// attach - whether the existing table is attached or the new table is created.
-    MergeTreeData(  const String & database_, const String & table_,
-                    const String & full_path_, NamesAndTypesListPtr columns_,
-                    const NamesAndTypesList & materialized_columns_,
-                    const NamesAndTypesList & alias_columns_,
-                    const ColumnDefaults & column_defaults_,
-                    Context & context_,
-                    const ASTPtr & primary_expr_ast_,
-                    const String & date_column_name,
-                    const ASTPtr & partition_expr_ast_,
-                    const ASTPtr & sampling_expression_, /// nullptr, if sampling is not supported.
-                    const MergingParams & merging_params_,
-                    const MergeTreeSettings & settings_,
-                    const String & log_name_,
-                    bool require_part_metadata_,
-                    bool attach,
-                    BrokenPartCallback broken_part_callback_ = [](const String &){},
-                    PartsCleanCallback parts_clean_callback_ = nullptr
-                 );
+    MergeTreeData(const String & database_, const String & table_,
+                  const String & full_path_, const NamesAndTypesList & columns_,
+                  const NamesAndTypesList & materialized_columns_,
+                  const NamesAndTypesList & alias_columns_,
+                  const ColumnDefaults & column_defaults_,
+                  Context & context_,
+                  const ASTPtr & primary_expr_ast_,
+                  const String & date_column_name,
+                  const ASTPtr & partition_expr_ast_,
+                  const ASTPtr & sampling_expression_, /// nullptr, if sampling is not supported.
+                  const MergingParams & merging_params_,
+                  const MergeTreeSettings & settings_,
+                  bool require_part_metadata_,
+                  bool attach,
+                  BrokenPartCallback broken_part_callback_ = [](const String &){});
 
     /// Load the set of data parts from disk. Call once - immediately after the object is created.
     void loadDataParts(bool skip_sanity_checks);
 
-    bool supportsSampling() const { return !!sampling_expression; }
+    bool supportsSampling() const { return sampling_expression != nullptr; }
     bool supportsPrewhere() const { return true; }
 
     bool supportsFinal() const
@@ -316,7 +305,7 @@ public:
 
     Int64 getMaxDataPartIndex();
 
-    const NamesAndTypesList & getColumnsListImpl() const override { return *columns; }
+    const NamesAndTypesList & getColumnsListImpl() const override { return columns; }
 
     NameAndTypePair getColumn(const String & column_name) const override
     {
@@ -374,8 +363,6 @@ public:
     /// If until is non-null, wake up from the sleep earlier if the event happened.
     void delayInsertIfNeeded(Poco::Event * until = nullptr);
 
-    DataPartPtr getShardedPartIfExists(const String & part_name, size_t shard_no);
-
     /// Renames temporary part to a permanent part and adds it to the working set.
     /// If increment != nullptr, part index is determing using increment. Otherwise part index remains unchanged.
     /// It is assumed that the part does not intersect with existing parts.
@@ -422,7 +409,7 @@ public:
     /// Moves the entire data directory.
     /// Flushes the uncompressed blocks cache and the marks cache.
     /// Must be called with locked lockStructureForAlter().
-    void setPath(const String & full_path, bool move_data);
+    void setPath(const String & full_path);
 
     /// Check if the ALTER can be performed:
     /// - all needed columns are present.
@@ -442,7 +429,7 @@ public:
         bool skip_sanity_checks);
 
     /// Must be called with locked lockStructureForAlter().
-    void setColumnsList(const NamesAndTypesList & new_columns) { columns = std::make_shared<NamesAndTypesList>(new_columns); }
+    void setColumnsList(const NamesAndTypesList & new_columns) { columns = new_columns; }
 
     /// Should be called if part data is suspected to be corrupted.
     void reportBrokenPart(const String & name)
@@ -504,13 +491,14 @@ public:
         return total_size;
     }
 
+    /// Calculates column sizes in compressed form for the current state of data_parts.
     void recalculateColumnSizes()
     {
         std::lock_guard<std::mutex> lock{data_parts_mutex};
         calculateColumnSizesImpl();
     }
 
-    /// For ATTACH/DETACH/DROP/RESHARD PARTITION.
+    /// For ATTACH/DETACH/DROP PARTITION.
     String getPartitionIDFromQuery(const ASTPtr & partition, const Context & context);
 
     MergeTreeDataFormatVersion format_version;
@@ -560,7 +548,7 @@ private:
     String table_name;
     String full_path;
 
-    NamesAndTypesListPtr columns;
+    NamesAndTypesList columns;
 
     /// Current column sizes in compressed and uncompressed form.
     ColumnSizes column_sizes;
@@ -651,14 +639,6 @@ private:
     std::mutex grab_old_parts_mutex;
     /// The same for clearOldTemporaryDirectories.
     std::mutex clear_old_temporary_directories_mutex;
-
-    /// For each shard of the set of sharded parts.
-    PerShardDataParts per_shard_data_parts;
-
-    /// Check that columns list doesn't contain multidimensional arrays.
-    /// If attach is true (attaching an existing table), writes an error message to log.
-    /// Otherwise (new table or alter) throws an exception.
-    void checkNoMultidimensionalArrays(const NamesAndTypesList & columns, bool attach) const;
 
     void initPrimaryKey();
 

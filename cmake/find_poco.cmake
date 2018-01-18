@@ -1,6 +1,6 @@
 option (USE_INTERNAL_POCO_LIBRARY "Set to FALSE to use system poco library instead of bundled" ${NOT_UNBUNDLED})
 
-if (NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/poco/CMakeLists.txt")
+if (USE_INTERNAL_POCO_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/poco/CMakeLists.txt")
    message (WARNING "submodule contrib/poco is missing. to fix try run: \n git submodule update --init --recursive")
    set (USE_INTERNAL_POCO_LIBRARY 0)
 endif ()
@@ -10,7 +10,6 @@ if (NOT USE_INTERNAL_POCO_LIBRARY)
 endif ()
 
 if (Poco_INCLUDE_DIRS AND Poco_Foundation_LIBRARY)
-    #include_directories (${Poco_INCLUDE_DIRS})
 else ()
 
     set (USE_INTERNAL_POCO_LIBRARY 1)
@@ -28,8 +27,6 @@ else ()
     set (POCO_STATIC ${MAKE_STATIC_LIBRARIES} CACHE BOOL "")
     set (POCO_VERBOSE_MESSAGES 1 CACHE BOOL "")
 
-    include (${ClickHouse_SOURCE_DIR}/cmake/find_ltdl.cmake)
-    include (${ClickHouse_SOURCE_DIR}/contrib/poco/cmake/FindODBC.cmake)
 
     # used in internal compiler
     list (APPEND Poco_INCLUDE_DIRS
@@ -45,8 +42,7 @@ else ()
 
     if (ODBC_FOUND)
         set (Poco_DataODBC_FOUND 1)
-        set (Poco_DataODBC_LIBRARY PocoDataODBC)
-        list (APPEND Poco_DataODBC_LIBRARY ${LTDL_LIB})
+        set (Poco_DataODBC_LIBRARY PocoDataODBC ${ODBC_LIBRARIES} ${LTDL_LIBRARY})
         set (Poco_DataODBC_INCLUDE_DIRS "${ClickHouse_SOURCE_DIR}/contrib/poco/Data/ODBC/include/")
     endif ()
 
@@ -73,8 +69,6 @@ else ()
     set (Poco_Data_LIBRARY PocoData)
     set (Poco_XML_LIBRARY PocoXML)
 
-    #include_directories (BEFORE ${Poco_INCLUDE_DIRS})
-
 endif ()
 
 message(STATUS "Using Poco: ${Poco_INCLUDE_DIRS} : ${Poco_Foundation_LIBRARY},${Poco_Util_LIBRARY},${Poco_Net_LIBRARY},${Poco_NetSSL_LIBRARY},${Poco_XML_LIBRARY},${Poco_Data_LIBRARY},${Poco_DataODBC_LIBRARY},${Poco_MongoDB_LIBRARY}; MongoDB=${Poco_MongoDB_FOUND}, DataODBC=${Poco_DataODBC_FOUND}, NetSSL=${Poco_NetSSL_FOUND}")
@@ -85,10 +79,11 @@ message(STATUS "Using Poco: ${Poco_INCLUDE_DIRS} : ${Poco_Foundation_LIBRARY},${
 # and merge:
 # ClickHouse-Extras/clickhouse_unbundled
 # ClickHouse-Extras/clickhouse_unbundled_zlib
-# ClickHouse-Extras/clickhouse_task   # uses c++11, can't push to poco
+# ClickHouse-Extras/clickhouse_task
 # ClickHouse-Extras/clickhouse_misc
 # ClickHouse-Extras/clickhouse_anl
 # ClickHouse-Extras/clickhouse_http_header https://github.com/pocoproject/poco/pull/1574
 # ClickHouse-Extras/clickhouse_socket
 # ClickHouse-Extras/clickhouse_warning
-
+# ClickHouse-Extras/clickhouse-purge-logs-on-no-space
+# ClickHouse-Extras/clickhouse_freebsd

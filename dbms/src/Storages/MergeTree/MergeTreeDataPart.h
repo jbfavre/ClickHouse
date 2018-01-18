@@ -97,12 +97,17 @@ struct MergeTreeDataPart
 
     MergeTreeDataPart(MergeTreeData & storage_, const String & name_);
 
+    const Checksum * tryGetChecksum(const String & name, const String & ext) const;
     /// Returns checksum of column's binary file.
     const Checksum * tryGetBinChecksum(const String & name) const;
+    /// Returns checksum of column's mrk file.
+    const Checksum * tryGetMrkChecksum(const String & name) const;
 
     /// Returns the size of .bin file for column `name` if found, zero otherwise
     size_t getColumnCompressedSize(const String & name) const;
     size_t getColumnUncompressedSize(const String & name) const;
+    /// Returns the size of .mrk file for column `name` if found, zero otherwise
+    size_t getColumnMrkSize(const String & name) const;
 
     /// Returns the name of a column with minimum compressed size (as returned by getColumnSize()).
     /// If no checksums are present returns the name of the first physically existing column.
@@ -141,9 +146,6 @@ struct MergeTreeDataPart
 
     /// If true it means that there are no ZooKeeper node for this part, so it should be deleted only from filesystem
     bool is_duplicate = false;
-
-    /// For resharding.
-    size_t shard_no = 0;
 
     /**
      * Part state is a stage of its lifetime. States are ordered and state of a part could be increased only.
@@ -273,7 +275,7 @@ struct MergeTreeDataPart
     ~MergeTreeDataPart();
 
     /// Calculate the total size of the entire directory with all the files
-    static size_t calcTotalSize(const String & from);
+    static size_t calculateTotalSize(const String & from);
 
     void remove() const;
 
@@ -297,6 +299,8 @@ struct MergeTreeDataPart
     /// For data in RAM ('index')
     size_t getIndexSizeInBytes() const;
     size_t getIndexSizeInAllocatedBytes() const;
+    /// Total size of *.mrk files
+    size_t getTotalMrkSizeInBytes() const;
 
 private:
     /// Reads columns names and types from columns.txt

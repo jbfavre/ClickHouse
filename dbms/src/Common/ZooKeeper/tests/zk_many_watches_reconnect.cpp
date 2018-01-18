@@ -1,4 +1,4 @@
-#include <Common/ConfigProcessor.h>
+#include <Common/ConfigProcessor/ConfigProcessor.h>
 #include <Common/ZooKeeper/ZooKeeper.h>
 #include <Poco/Event.h>
 #include <iostream>
@@ -23,8 +23,8 @@ int main(int argc, char ** argv)
             return 3;
         }
 
-        ConfigProcessor processor(false, true);
-        auto config = processor.loadConfig(argv[1]).configuration;
+        ConfigProcessor processor(argv[1], false, true);
+        auto config = processor.loadConfig().configuration;
         zkutil::ZooKeeper zk(*config, "zookeeper");
         zkutil::EventPtr watch = std::make_shared<Poco::Event>();
 

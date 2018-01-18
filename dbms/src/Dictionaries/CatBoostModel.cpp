@@ -1,5 +1,5 @@
 #include <Dictionaries/CatBoostModel.h>
-#include <Core/FieldVisitors.h>
+#include <Common/FieldVisitors.h>
 #include <mutex>
 #include <Columns/ColumnString.h>
 #include <Columns/ColumnFixedString.h>
@@ -92,14 +92,15 @@ public:
             std::string msg = "Cannot load CatBoost model: ";
             throw Exception(msg + api->GetErrorString(), ErrorCodes::CANNOT_LOAD_CATBOOST_MODEL);
         }
+
+        float_features_count = api->GetFloatFeaturesCount(handle_->get());
+        cat_features_count = api->GetCatFeaturesCount(handle_->get());
+
         handle = std::move(handle_);
     }
 
-    ColumnPtr evaluate(const ConstColumnPlainPtrs & columns,
-                       size_t float_features_count, size_t cat_features_count) const override
+    ColumnPtr evaluate(const ColumnRawPtrs & columns) const override
     {
-        checkFeaturesCount(float_features_count, cat_features_count);
-
         if (columns.empty())
             throw Exception("Got empty columns list for CatBoost model.", ErrorCodes::BAD_ARGUMENTS);
 
@@ -148,28 +149,14 @@ public:
         return evalImpl(columns, float_features_count, cat_features_count, cat_features_are_strings);
     }
 
-    void checkFeaturesCount(size_t float_features_count, size_t cat_features_count) const
-    {
-        if (api->GetFloatFeaturesCount)
-        {
-            size_t float_features_in_model = api->GetFloatFeaturesCount(handle->get());
-            if (float_features_count != float_features_in_model)
-                throw Exception("CatBoost model expected " + std::to_string(float_features_in_model) + " float features"
-                                + ", but " + std::to_string(float_features_count) + " was provided.");
-        }
-
-        if (api->GetCatFeaturesCount)
-        {
-            size_t cat_features_in_model = api->GetCatFeaturesCount(handle->get());
-            if (cat_features_count != cat_features_in_model)
-                throw Exception("CatBoost model expected " + std::to_string(cat_features_in_model) + " cat features"
-                                + ", but " + std::to_string(cat_features_count) + " was provided.");
-        }
-    }
+    size_t getFloatFeaturesCount() const override { return float_features_count; }
+    size_t getCatFeaturesCount() const override { return cat_features_count; }
 
 private:
     std::unique_ptr<CatBoostModelHolder> handle;
     const CatBoostWrapperAPI * api;
+    size_t float_features_count;
+    size_t cat_features_count;
 
     /// Buffer should be allocated with features_count * column->size() elements.
     /// Place column elements in positions buffer[0], buffer[features_count], ... , buffer[size * features_count]
@@ -226,14 +213,14 @@ private:
 
     /// Place columns into buffer, returns column which holds placed data. Buffer should contains column->size() values.
     template <typename T>
-    ColumnPtr placeNumericColumns(const ConstColumnPlainPtrs & columns,
+    ColumnPtr placeNumericColumns(const ColumnRawPtrs & columns,
                                   size_t offset, size_t size, const T** buffer) const
     {
         if (size == 0)
             return nullptr;
         size_t column_size = columns[offset]->size();
-        auto data_column = std::make_shared<ColumnVector<T>>(size * column_size);
-        T* data = data_column->getData().data();
+        auto data_column = ColumnVector<T>::create(size * column_size);
+        T * data = data_column->getData().data();
         for (size_t i = 0; i < size; ++i)
         {
             auto column = columns[offset + i];
@@ -248,13 +235,13 @@ private:
             data += size;
         }
 
-        return data_column;
+        return std::move(data_column);
     }
 
     /// Place columns into buffer, returns data which was used for fixed string columns.
     /// Buffer should contains column->size() values, each value contains size strings.
     std::vector<PODArray<char>> placeStringColumns(
-            const ConstColumnPlainPtrs & columns, size_t offset, size_t size, const char ** buffer) const
+            const ColumnRawPtrs & columns, size_t offset, size_t size, const char ** buffer) const
     {
         if (size == 0)
             return {};
@@ -300,7 +287,7 @@ private:
     /// buffer contains column->size() rows and size columns.
     /// For int cat features calc hash inplace.
     /// For string cat features calc hash from column rows.
-    void calcHashes(const ConstColumnPlainPtrs & columns, size_t offset, size_t size, const int ** buffer) const
+    void calcHashes(const ColumnRawPtrs & columns, size_t offset, size_t size, const int ** buffer) const
     {
         if (size == 0)
             return;
@@ -335,13 +322,13 @@ private:
     ///  * CalcModelPredictionFlat if no cat features
     ///  * CalcModelPrediction if all cat features are strings
     ///  * CalcModelPredictionWithHashedCatFeatures if has int cat features.
-    ColumnPtr evalImpl(const ConstColumnPlainPtrs & columns, size_t float_features_count, size_t cat_features_count,
+    ColumnPtr evalImpl(const ColumnRawPtrs & columns, size_t float_features_count, size_t cat_features_count,
                        bool cat_features_are_strings) const
     {
         std::string error_msg = "Error occurred while applying CatBoost model: ";
         size_t column_size = columns.front()->size();
 
-        auto result= std::make_shared<ColumnFloat64>(column_size);
+        auto result = ColumnFloat64::create(column_size);
         auto result_buf = result->getData().data();
 
         /// Prepare float features.
@@ -359,7 +346,7 @@ private:
 
                 throw Exception(error_msg + api->GetErrorString(), ErrorCodes::CANNOT_APPLY_CATBOOST_MODEL);
             }
-            return result;
+            return std::move(result);
         }
 
         /// Prepare cat features.
@@ -400,7 +387,7 @@ private:
             }
         }
 
-        return result;
+        return std::move(result);
     }
 };
 
@@ -409,7 +396,7 @@ private:
 class CatBoostLibHolder: public CatBoostWrapperAPIProvider
 {
 public:
-    explicit CatBoostLibHolder(const std::string & lib_path) : lib_path(lib_path), lib(lib_path) { initAPI(); }
+    explicit CatBoostLibHolder(std::string lib_path_) : lib_path(std::move(lib_path_)), lib(lib_path) { initAPI(); }
 
     const CatBoostWrapperAPI & getAPI() const override { return api; }
     const std::string & getCurrentPath() const { return lib_path; }
@@ -423,9 +410,6 @@ private:
 
     template <typename T>
     void load(T& func, const std::string & name) { func = lib.get<T>(name); }
-
-    template <typename T>
-    void tryLoad(T& func, const std::string & name) { func = lib.tryGet<T>(name); }
 };
 
 void CatBoostLibHolder::initAPI()
@@ -439,9 +423,8 @@ void CatBoostLibHolder::initAPI()
     load(api.CalcModelPredictionWithHashedCatFeatures, "CalcModelPredictionWithHashedCatFeatures");
     load(api.GetStringCatFeatureHash, "GetStringCatFeatureHash");
     load(api.GetIntegerCatFeatureHash, "GetIntegerCatFeatureHash");
-
-    tryLoad(api.GetFloatFeaturesCount, "GetFloatFeaturesCount");
-    tryLoad(api.GetCatFeaturesCount, "GetCatFeaturesCount");
+    load(api.GetFloatFeaturesCount, "GetFloatFeaturesCount");
+    load(api.GetCatFeaturesCount, "GetCatFeaturesCount");
 }
 
 std::shared_ptr<CatBoostLibHolder> getCatBoostWrapperHolder(const std::string & lib_path)
@@ -465,11 +448,9 @@ std::shared_ptr<CatBoostLibHolder> getCatBoostWrapperHolder(const std::string & 
 }
 
 
-CatBoostModel::CatBoostModel(const std::string & name, const std::string & model_path, const std::string & lib_path,
-                             const ExternalLoadableLifetime & lifetime,
-                             size_t float_features_count, size_t cat_features_count)
-    : name(name), model_path(model_path), lib_path(lib_path), lifetime(lifetime),
-      float_features_count(float_features_count), cat_features_count(cat_features_count)
+CatBoostModel::CatBoostModel(std::string name_, std::string model_path_, std::string lib_path_,
+                             const ExternalLoadableLifetime & lifetime)
+    : name(std::move(name_)), model_path(std::move(model_path_)), lib_path(std::move(lib_path_)), lifetime(lifetime)
 {
     try
     {
@@ -479,6 +460,8 @@ CatBoostModel::CatBoostModel(const std::string & name, const std::string & model
     {
         creation_exception = std::current_exception();
     }
+
+    creation_time = std::chrono::system_clock::now();
 }
 
 void CatBoostModel::init(const std::string & lib_path)
@@ -486,6 +469,8 @@ void CatBoostModel::init(const std::string & lib_path)
     api_provider = getCatBoostWrapperHolder(lib_path);
     api = &api_provider->getAPI();
     model = std::make_unique<CatBoostModelImpl>(api, model_path);
+    float_features_count = model->getFloatFeaturesCount();
+    cat_features_count = model->getCatFeaturesCount();
 }
 
 const ExternalLoadableLifetime & CatBoostModel::getLifetime() const
@@ -500,7 +485,7 @@ bool CatBoostModel::isModified() const
 
 std::unique_ptr<IExternalLoadable> CatBoostModel::clone() const
 {
-    return std::make_unique<CatBoostModel>(name, model_path, lib_path, lifetime, float_features_count, cat_features_count);
+    return std::make_unique<CatBoostModel>(name, model_path, lib_path, lifetime);
 }
 
 size_t CatBoostModel::getFloatFeaturesCount() const
@@ -513,11 +498,11 @@ size_t CatBoostModel::getCatFeaturesCount() const
     return cat_features_count;
 }
 
-ColumnPtr CatBoostModel::evaluate(const ConstColumnPlainPtrs & columns) const
+ColumnPtr CatBoostModel::evaluate(const ColumnRawPtrs & columns) const
 {
     if (!model)
         throw Exception("CatBoost model was not loaded.", ErrorCodes::LOGICAL_ERROR);
-    return model->evaluate(columns, float_features_count, cat_features_count);
+    return model->evaluate(columns);
 }
 
 }

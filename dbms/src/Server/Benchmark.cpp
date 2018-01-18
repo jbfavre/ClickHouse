@@ -32,6 +32,7 @@
 #include <IO/ReadHelpers.h>
 #include <IO/WriteHelpers.h>
 #include <IO/Operators.h>
+#include <IO/ConnectionTimeouts.h>
 
 #include <DataStreams/RemoteBlockInputStream.h>
 
@@ -64,10 +65,10 @@ public:
             const String & host_, UInt16 port_, const String & default_database_,
             const String & user_, const String & password_, const String & stage,
             bool randomize_, size_t max_iterations_, double max_time_,
-            const String & json_path_, const Settings & settings_)
+            const String & json_path_, const ConnectionTimeouts & timeouts, const Settings & settings_)
         :
         concurrency(concurrency_), delay(delay_), queue(concurrency),
-        connections(concurrency, host_, port_, default_database_, user_, password_),
+        connections(concurrency, host_, port_, default_database_, user_, password_, timeouts),
         randomize(randomize_), max_iterations(max_iterations_), max_time(max_time_),
         json_path(json_path_), settings(settings_), global_context(Context::createGlobal()), pool(concurrency)
     {
@@ -439,8 +440,8 @@ int mainEntryClickHouseBenchmark(int argc, char ** argv)
             ("database",        value<std::string>()->default_value("default"),     "")
             ("stacktrace",                                                            "print stack traces of exceptions")
 
-        #define DECLARE_SETTING(TYPE, NAME, DEFAULT) (#NAME, boost::program_options::value<std::string> (), "Settings.h")
-        #define DECLARE_LIMIT(TYPE, NAME, DEFAULT) (#NAME, boost::program_options::value<std::string> (), "Limits.h")
+        #define DECLARE_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) (#NAME, boost::program_options::value<std::string> (), "Settings.h")
+        #define DECLARE_LIMIT(TYPE, NAME, DEFAULT, DESCRIPTION) (#NAME, boost::program_options::value<std::string> (), "Limits.h")
             APPLY_FOR_SETTINGS(DECLARE_SETTING)
             APPLY_FOR_LIMITS(DECLARE_LIMIT)
         #undef DECLARE_SETTING
@@ -462,7 +463,7 @@ int mainEntryClickHouseBenchmark(int argc, char ** argv)
         /// Extract `settings` and `limits` from received `options`
         Settings settings;
 
-        #define EXTRACT_SETTING(TYPE, NAME, DEFAULT) \
+        #define EXTRACT_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (options.count(#NAME)) \
             settings.set(#NAME, options[#NAME].as<std::string>());
         APPLY_FOR_SETTINGS(EXTRACT_SETTING)
@@ -482,6 +483,7 @@ int mainEntryClickHouseBenchmark(int argc, char ** argv)
             options["iterations"].as<size_t>(),
             options["timelimit"].as<double>(),
             options["json"].as<std::string>(),
+            ConnectionTimeouts::getTCPTimeouts(settings),
             settings);
     }
     catch (...)

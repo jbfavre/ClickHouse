@@ -4,6 +4,7 @@
 #include <Storages/MergeTree/MergeTreeData.h>
 #include <IO/HashingWriteBuffer.h>
 #include <IO/copyData.h>
+#include <IO/ConnectionTimeouts.h>
 
 
 namespace DB
@@ -28,7 +29,6 @@ public:
 
 private:
     MergeTreeData::DataPartPtr findPart(const String & name);
-    MergeTreeData::DataPartPtr findShardedPart(const String & name, size_t shard_no);
 
 private:
     MergeTreeData & data;
@@ -52,19 +52,11 @@ public:
         const String & replica_path,
         const String & host,
         int port,
+        const ConnectionTimeouts & timeouts,
         bool to_detached = false);
 
     /// You need to stop the data transfer.
     ActionBlocker blocker;
-
-private:
-    MergeTreeData::MutableDataPartPtr fetchPartImpl(
-        const String & part_name,
-        const String & replica_path,
-        const String & host,
-        int port,
-        const String & shard_no,
-        bool to_detached);
 
 private:
     MergeTreeData & data;

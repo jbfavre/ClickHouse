@@ -3,7 +3,7 @@
 #include <Storages/MergeTree/MergeTreeDataPart.h>
 #include <IO/ReadBufferFromFile.h>
 #include <IO/HashingWriteBuffer.h>
-#include <Core/FieldVisitors.h>
+#include <Common/FieldVisitors.h>
 #include <DataTypes/DataTypeDate.h>
 #include <Common/SipHash.h>
 #include <Common/typeid_cast.h>
@@ -96,7 +96,7 @@ void MergeTreePartition::serializeTextQuoted(const MergeTreeData & storage, Writ
             writeCString(", ", out);
 
         const DataTypePtr & type = storage.partition_expr_column_types[i];
-        ColumnPtr column = type->createColumn();
+        auto column = type->createColumn();
         column->insert(value[i]);
         type->serializeTextQuoted(*column, 0, out);
     }

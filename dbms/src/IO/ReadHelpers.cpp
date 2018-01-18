@@ -1,9 +1,10 @@
 #include <Core/Defines.h>
 #include <Common/hex.h>
 #include <Common/PODArray.h>
-#include <Common/StringUtils.h>
+#include <Common/StringUtils/StringUtils.h>
 #include <IO/WriteHelpers.h>
 #include <IO/WriteBufferFromString.h>
+#include <IO/readFloatText.h>
 #include <IO/Operators.h>
 #include <common/find_first_symbols.h>
 #include <stdlib.h>
@@ -249,7 +250,7 @@ static void parseComplexEscapeSequence(Vector & s, ReadBuffer & buf)
 template <typename Vector, typename ReturnType>
 static ReturnType parseJSONEscapeSequence(Vector & s, ReadBuffer & buf)
 {
-    static constexpr bool throw_exception = std::is_same<ReturnType, void>::value;
+    static constexpr bool throw_exception = std::is_same_v<ReturnType, void>;
 
     auto error = [](const char * message, int code)
     {
@@ -586,7 +587,7 @@ template void readCSVStringInto<PaddedPODArray<UInt8>>(PaddedPODArray<UInt8> & s
 template <typename Vector, typename ReturnType>
 ReturnType readJSONStringInto(Vector & s, ReadBuffer & buf)
 {
-    static constexpr bool throw_exception = std::is_same<ReturnType, void>::value;
+    static constexpr bool throw_exception = std::is_same_v<ReturnType, void>;
 
     auto error = [](const char * message, int code)
     {
@@ -631,6 +632,36 @@ void readJSONString(String & s, ReadBuffer & buf)
 template void readJSONStringInto<PaddedPODArray<UInt8>, void>(PaddedPODArray<UInt8> & s, ReadBuffer & buf);
 template bool readJSONStringInto<PaddedPODArray<UInt8>, bool>(PaddedPODArray<UInt8> & s, ReadBuffer & buf);
 template void readJSONStringInto<NullSink>(NullSink & s, ReadBuffer & buf);
+
+
+void readDateTextFallback(LocalDate & date, ReadBuffer & buf)
+{
+    char chars_year[4];
+    readPODBinary(chars_year, buf);
+    UInt16 year = (chars_year[0] - '0') * 1000 + (chars_year[1] - '0') * 100 + (chars_year[2] - '0') * 10 + (chars_year[3] - '0');
+
+    buf.ignore();
+
+    char chars_month[2];
+    readPODBinary(chars_month, buf);
+    UInt8 month = chars_month[0] - '0';
+    if (isNumericASCII(chars_month[1]))
+    {
+        month = month * 10 + chars_month[1] - '0';
+        buf.ignore();
+    }
+
+    char char_day;
+    readChar(char_day, buf);
+    UInt8 day = char_day - '0';
+    if (!buf.eof() && isNumericASCII(*buf.position()))
+    {
+        day = day * 10 + *buf.position() - '0';
+        ++buf.position();
+    }
+
+    date = LocalDate(year, month, day);
+}
 
 
 void readDateTimeTextFallback(time_t & datetime, ReadBuffer & buf, const DateLUTImpl & date_lut)
@@ -687,8 +718,11 @@ void skipJSONFieldPlain(ReadBuffer & buf, const StringRef & name_of_filed)
         NullSink sink;
         readJSONStringInto(sink, buf);
     }
-    else if (isNumericASCII(*buf.position()) || *buf.position() == '-' || *buf.position() == '+') /// skip number
+    else if (isNumericASCII(*buf.position()) || *buf.position() == '-' || *buf.position() == '+' || *buf.position() == '.') /// skip number
     {
+        if (*buf.position() == '+')
+            ++buf.position();
+
         double v;
         if (!tryReadFloatText(v, buf))
             throw Exception("Expected a number field for key '" + name_of_filed.toString() + "'", ErrorCodes::INCORRECT_DATA);
@@ -786,45 +820,6 @@ void readAndThrowException(ReadBuffer & buf, const String & additional_message)
     Exception e;
     readException(e, buf, additional_message);
     e.rethrow();
-}
-
-
-/** Must successfully parse inf, INF and Infinity.
-  * All other variants in different cases are also parsed for simplicity.
-  */
-bool parseInfinity(ReadBuffer & buf)
-{
-    if (!checkStringCaseInsensitive("inf", buf))
-        return false;
-
-    /// Just inf.
-    if (buf.eof() || !isWordCharASCII(*buf.position()))
-        return true;
-
-    /// If word characters after inf, it should be infinity.
-    return checkStringCaseInsensitive("inity", buf);
-}
-
-
-/** Must successfully parse nan, NAN and NaN.
-  * All other variants in different cases are also parsed for simplicity.
-  */
-bool parseNaN(ReadBuffer & buf)
-{
-    return checkStringCaseInsensitive("nan", buf);
-}
-
-
-void assertInfinity(ReadBuffer & buf)
-{
-    if (!parseInfinity(buf))
-        throw Exception("Cannot parse infinity.", ErrorCodes::CANNOT_PARSE_INPUT_ASSERTION_FAILED);
-}
-
-void assertNaN(ReadBuffer & buf)
-{
-    if (!parseNaN(buf))
-        throw Exception("Cannot parse NaN.", ErrorCodes::CANNOT_PARSE_INPUT_ASSERTION_FAILED);
 }
 
 

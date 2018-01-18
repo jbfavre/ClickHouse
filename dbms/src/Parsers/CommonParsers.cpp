@@ -1,4 +1,4 @@
-#include <Common/StringUtils.h>
+#include <Common/StringUtils/StringUtils.h>
 #include <Parsers/CommonParsers.h>
 #include <common/find_first_symbols.h>
 
@@ -25,7 +25,7 @@ const char * ParserKeyword::getName() const
 }
 
 
-bool ParserKeyword::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
+bool ParserKeyword::parseImpl(Pos & pos, ASTPtr & /*node*/, Expected & expected)
 {
     if (pos->type != TokenType::BareWord)
         return false;

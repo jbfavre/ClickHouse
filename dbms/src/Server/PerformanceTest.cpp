@@ -23,6 +23,7 @@
 #include <IO/ReadBufferFromFile.h>
 #include <IO/ReadHelpers.h>
 #include <IO/WriteBufferFromFile.h>
+#include <IO/ConnectionTimeouts.h>
 #include <Interpreters/Settings.h>
 #include <common/ThreadPool.h>
 #include <common/getMemoryAmount.h>
@@ -82,7 +83,7 @@ public:
     }
 
     template <typename T>
-    typename std::enable_if<std::is_arithmetic<T>::value>::type set(const String key, T value)
+    std::enable_if_t<std::is_arithmetic_v<T>> set(const String key, T value)
     {
         set(key, std::to_string(value), /*wrap= */ false);
     }
@@ -304,6 +305,7 @@ struct Stats
     size_t number_of_bytes_speed_info_batches = 0;
 
     bool ready = false; // check if a query wasn't interrupted by SIGINT
+    String exception;
 
     String getStatisticByName(const String & statistic_name)
     {
@@ -502,8 +504,9 @@ public:
         Strings && tests_names_,
         Strings && skip_names_,
         Strings && tests_names_regexp_,
-        Strings && skip_names_regexp_)
-        : connection(host_, port_, default_database_, user_, password_),
+        Strings && skip_names_regexp_,
+        const ConnectionTimeouts & timeouts)
+        : connection(host_, port_, default_database_, user_, password_, timeouts),
           gotSIGINT(false),
           lite_output(lite_output_),
           profiles_file(profiles_file_),
@@ -598,7 +601,8 @@ private:
     void removeConfigurationsIf(
         std::vector<XMLConfigurationPtr> & configs, FilterType filter_type, const Strings & values, bool leave = false)
     {
-        auto checker = [&filter_type, &values, &leave](XMLConfigurationPtr & config) {
+        auto checker = [&filter_type, &values, &leave](XMLConfigurationPtr & config)
+        {
             if (values.size() == 0)
                 return false;
 
@@ -628,7 +632,8 @@ private:
             if (filter_type == FilterType::Name_regexp)
             {
                 String config_name = config->getString("name", "");
-                auto regex_checker = [&config_name](const String & name_regexp) {
+                auto regex_checker = [&config_name](const String & name_regexp)
+                {
                     std::regex pattern(name_regexp);
                     return std::regex_search(config_name, pattern);
                 };
@@ -712,7 +717,7 @@ private:
 
                     if (packet.type == Protocol::Server::Data)
                     {
-                        for (const ColumnWithTypeAndName & column : packet.block.getColumns())
+                        for (const ColumnWithTypeAndName & column : packet.block)
                         {
                             if (column.name == "result" && column.column->size() > 0)
                             {
@@ -837,7 +842,7 @@ private:
             /// and, if found any settings in test's xml configuration
             /// with the same name, sets its value to settings
             std::map<String, String>::iterator it;
-#define EXTRACT_SETTING(TYPE, NAME, DEFAULT) \
+#define EXTRACT_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) \
     it = settings_to_apply.find(#NAME);      \
     if (it != settings_to_apply.end())       \
         settings.set(#NAME, settings_to_apply[#NAME]);
@@ -908,14 +913,17 @@ private:
 
         if (test_config->has("substitutions"))
         {
-            if (queries.size() > 1)
-                throw DB::Exception("Only one query is allowed when using substitutions");
-
             /// Make "subconfig" of inner xml block
             ConfigurationPtr substitutions_view(test_config->createView("substitutions"));
             constructSubstitutions(substitutions_view, substitutions);
 
-            queries = formatQueries(queries[0], substitutions);
+            auto queries_pre_format = queries;
+            queries.clear();
+            for (const auto & query : queries_pre_format)
+            {
+                auto formatted = formatQueries(query, substitutions);
+                queries.insert(queries.end(), formatted.begin(), formatted.end());
+            }
         }
 
         if (!test_config->has("type"))
@@ -1044,18 +1052,25 @@ private:
             Stats & statistics = statistics_by_run[run_index];
 
             statistics.clear();
-            execute(query, statistics, stop_conditions);
-
-            if (exec_type == ExecutionType::Loop)
+            try
             {
-                for (size_t iteration = 1; !gotSIGINT; ++iteration)
-                {
-                    stop_conditions.reportIterations(iteration);
-                    if (stop_conditions.areFulfilled())
-                        break;
+                execute(query, statistics, stop_conditions);
 
-                    execute(query, statistics, stop_conditions);
+                if (exec_type == ExecutionType::Loop)
+                {
+                    for (size_t iteration = 1; !gotSIGINT; ++iteration)
+                    {
+                        stop_conditions.reportIterations(iteration);
+                        if (stop_conditions.areFulfilled())
+                            break;
+
+                        execute(query, statistics, stop_conditions);
+                    }
                 }
+            }
+            catch (const DB::Exception & e)
+            {
+                statistics.exception = e.what() + String(", ") + e.displayText();
             }
 
             if (!gotSIGINT)
@@ -1208,7 +1223,7 @@ public:
         json_output.set("num_threads", std::thread::hardware_concurrency());
         json_output.set("ram", getMemoryAmount());
         json_output.set("server_version", server_version);
-        json_output.set("time", DateLUT::instance().timeToString(time(0)));
+        json_output.set("time", DateLUT::instance().timeToString(time(nullptr)));
         json_output.set("test_name", test_name);
         json_output.set("main_metric", main_metric);
 
@@ -1251,6 +1266,8 @@ public:
                 JSONString runJSON;
 
                 runJSON.set("query", queries[query_index]);
+                if (!statistics.exception.empty())
+                    runJSON.set("exception", statistics.exception);
 
                 if (substitutions_maps.size())
                 {
@@ -1469,6 +1486,8 @@ try
     Strings tests_names_regexp = options.count("names-regexp") ? options["names-regexp"].as<Strings>() : Strings({});
     Strings skip_names_regexp = options.count("skip-names-regexp") ? options["skip-names-regexp"].as<Strings>() : Strings({});
 
+    auto timeouts = DB::ConnectionTimeouts::getTCPTimeouts(DB::Settings());
+
     DB::PerformanceTest performanceTest(options["host"].as<String>(),
         options["port"].as<UInt16>(),
         options["database"].as<String>(),
@@ -1482,7 +1501,8 @@ try
         std::move(tests_names),
         std::move(skip_names),
         std::move(tests_names_regexp),
-        std::move(skip_names_regexp));
+        std::move(skip_names_regexp),
+        timeouts);
 
     return 0;
 }

@@ -1,4 +1,5 @@
 #include <Storages/StorageSet.h>
+#include <Storages/StorageFactory.h>
 #include <IO/ReadBufferFromFile.h>
 #include <IO/CompressedReadBuffer.h>
 #include <IO/WriteBufferFromFile.h>
@@ -6,13 +7,18 @@
 #include <DataStreams/NativeBlockOutputStream.h>
 #include <DataStreams/NativeBlockInputStream.h>
 #include <Common/escapeForFileName.h>
-#include <Common/StringUtils.h>
+#include <Common/StringUtils/StringUtils.h>
 #include <Interpreters/Set.h>
 #include <Poco/DirectoryIterator.h>
 
 
 namespace DB
 {
+
+namespace ErrorCodes
+{
+    extern const int NUMBER_OF_ARGUMENTS_DOESNT_MATCH;
+}
 
 
 class SetOrJoinBlockOutputStream : public IBlockOutputStream
@@ -66,7 +72,7 @@ void SetOrJoinBlockOutputStream::writeSuffix()
 
 
 
-BlockOutputStreamPtr StorageSetOrJoinBase::write(const ASTPtr & query, const Settings & settings)
+BlockOutputStreamPtr StorageSetOrJoinBase::write(const ASTPtr & /*query*/, const Settings & /*settings*/)
 {
     ++increment;
     return std::make_shared<SetOrJoinBlockOutputStream>(*this, path, path + "tmp/", toString(increment) + ".bin");
@@ -76,7 +82,7 @@ BlockOutputStreamPtr StorageSetOrJoinBase::write(const ASTPtr & query, const Set
 StorageSetOrJoinBase::StorageSetOrJoinBase(
     const String & path_,
     const String & name_,
-    NamesAndTypesListPtr columns_,
+    const NamesAndTypesList & columns_,
     const NamesAndTypesList & materialized_columns_,
     const NamesAndTypesList & alias_columns_,
     const ColumnDefaults & column_defaults_)
@@ -90,7 +96,7 @@ StorageSetOrJoinBase::StorageSetOrJoinBase(
 StorageSet::StorageSet(
     const String & path_,
     const String & name_,
-    NamesAndTypesListPtr columns_,
+    const NamesAndTypesList & columns_,
     const NamesAndTypesList & materialized_columns_,
     const NamesAndTypesList & alias_columns_,
     const ColumnDefaults & column_defaults_)
@@ -157,7 +163,7 @@ void StorageSetOrJoinBase::restoreFromFile(const String & file_path)
 }
 
 
-void StorageSetOrJoinBase::rename(const String & new_path_to_db, const String & new_database_name, const String & new_table_name)
+void StorageSetOrJoinBase::rename(const String & new_path_to_db, const String & /*new_database_name*/, const String & new_table_name)
 {
     /// Rename directory with data.
     String new_path = new_path_to_db + escapeForFileName(new_table_name);
@@ -165,6 +171,22 @@ void StorageSetOrJoinBase::rename(const String & new_path_to_db, const String & 
 
     path = new_path + "/";
     name = new_table_name;
+}
+
+
+void registerStorageSet(StorageFactory & factory)
+{
+    factory.registerStorage("Set", [](const StorageFactory::Arguments & args)
+    {
+        if (!args.engine_args.empty())
+            throw Exception(
+                "Engine " + args.engine_name + " doesn't support any arguments (" + toString(args.engine_args.size()) + " given)",
+                ErrorCodes::NUMBER_OF_ARGUMENTS_DOESNT_MATCH);
+
+        return StorageSet::create(
+            args.data_path, args.table_name, args.columns,
+            args.materialized_columns, args.alias_columns, args.column_defaults);
+    });
 }
 
 

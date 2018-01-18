@@ -1,10 +1,11 @@
+#include "ZooKeeper.h"
+
 #include <random>
 #include <pcg_random.hpp>
 #include <functional>
-#include <Common/ZooKeeper/ZooKeeper.h>
 #include <common/logger_useful.h>
 #include <Common/ProfileEvents.h>
-#include <Common/StringUtils.h>
+#include <Common/StringUtils/StringUtils.h>
 #include <Common/PODArray.h>
 #include <Common/randomSeed.h>
 
@@ -60,7 +61,7 @@ struct WatchContext
     }
 };
 
-void ZooKeeper::processCallback(zhandle_t * zh, int type, int state, const char * path, void * watcher_ctx)
+void ZooKeeper::processCallback(zhandle_t *, int type, int state, const char * path, void * watcher_ctx)
 {
     WatchContext * context = static_cast<WatchContext *>(watcher_ctx);
     context->process(type, state, path);
@@ -71,7 +72,8 @@ void ZooKeeper::processCallback(zhandle_t * zh, int type, int state, const char 
         destroyContext(context);
 }
 
-void ZooKeeper::init(const std::string & hosts_, const std::string & identity_, int32_t session_timeout_ms_)
+void ZooKeeper::init(const std::string & hosts_, const std::string & identity_,
+                     int32_t session_timeout_ms_, bool check_root_exists)
 {
     log = &Logger::get("ZooKeeper");
     zoo_set_debug_level(ZOO_LOG_LEVEL_ERROR);
@@ -87,7 +89,7 @@ void ZooKeeper::init(const std::string & hosts_, const std::string & identity_, 
 
     if (!identity.empty())
     {
-        auto code = zoo_add_auth(impl, "digest", identity.c_str(), static_cast<int>(identity.size()), 0, 0);
+        auto code = zoo_add_auth(impl, "digest", identity.c_str(), static_cast<int>(identity.size()), nullptr, nullptr);
         if (code != ZOK)
             throw KeeperException("Zookeeper authentication failed. Hosts are  " + hosts, code);
 
@@ -97,11 +99,15 @@ void ZooKeeper::init(const std::string & hosts_, const std::string & identity_, 
         default_acl = &ZOO_OPEN_ACL_UNSAFE;
 
     LOG_TRACE(log, "initialized, hosts: " << hosts);
+
+    if (check_root_exists && !exists("/"))
+        throw KeeperException("Zookeeper root doesn't exist. You should create root node before start.");
 }
 
-ZooKeeper::ZooKeeper(const std::string & hosts, const std::string & identity, int32_t session_timeout_ms)
+ZooKeeper::ZooKeeper(const std::string & hosts, const std::string & identity,
+                     int32_t session_timeout_ms, bool check_root_exists)
 {
-    init(hosts, identity, session_timeout_ms);
+    init(hosts, identity, session_timeout_ms, check_root_exists);
 }
 
 struct ZooKeeperArgs
@@ -115,6 +121,7 @@ struct ZooKeeperArgs
         std::string root;
 
         session_timeout_ms = DEFAULT_SESSION_TIMEOUT;
+        has_chroot = false;
         for (const auto & key : keys)
         {
             if (startsWith(key, "node"))
@@ -154,19 +161,24 @@ struct ZooKeeperArgs
         {
             if (root.front() != '/')
                 throw KeeperException(std::string("Root path in config file should start with '/', but got ") + root);
+            if (root.back() == '/')
+                root.pop_back();
+
             hosts += root;
+            has_chroot = true;
         }
     }
 
     std::string hosts;
     std::string identity;
     int session_timeout_ms;
+    bool has_chroot;
 };
 
 ZooKeeper::ZooKeeper(const Poco::Util::AbstractConfiguration & config, const std::string & config_name)
 {
     ZooKeeperArgs args(config, config_name);
-    init(args.hosts, args.identity, args.session_timeout_ms);
+    init(args.hosts, args.identity, args.session_timeout_ms, args.has_chroot);
 }
 
 WatchCallback ZooKeeper::callbackForEvent(const EventPtr & event)
@@ -430,13 +442,7 @@ int32_t ZooKeeper::existsImpl(const std::string & path, Stat * stat_, WatchCallb
 
 bool ZooKeeper::exists(const std::string & path, Stat * stat_, const EventPtr & watch)
 {
-    int32_t code = retry(std::bind(&ZooKeeper::existsImpl, this, path, stat_, callbackForEvent(watch)));
-
-    if (!(code == ZOK || code == ZNONODE))
-        throw KeeperException(code, path);
-    if (code == ZNONODE)
-        return false;
-    return true;
+    return existsWatch(path, stat_, callbackForEvent(watch));
 }
 
 bool ZooKeeper::existsWatch(const std::string & path, Stat * stat_, const WatchCallback & watch_callback)
@@ -496,15 +502,7 @@ std::string ZooKeeper::get(const std::string & path, Stat * stat, const EventPtr
 
 bool ZooKeeper::tryGet(const std::string & path, std::string & res, Stat * stat_, const EventPtr & watch, int * return_code)
 {
-    int32_t code = retry(std::bind(&ZooKeeper::getImpl, this, std::ref(path), std::ref(res), stat_, callbackForEvent(watch)));
-
-    if (!(code == ZOK || code == ZNONODE))
-        throw KeeperException(code, path);
-
-    if (return_code)
-        *return_code = code;
-
-    return code == ZOK;
+    return tryGetWatch(path, res, stat_, callbackForEvent(watch), return_code);
 }
 
 bool ZooKeeper::tryGetWatch(const std::string & path, std::string & res, Stat * stat_, const WatchCallback & watch_callback, int * return_code)
@@ -905,7 +903,7 @@ ZooKeeper::GetChildrenFuture ZooKeeper::asyncGetChildren(const std::string & pat
     return future;
 }
 
-ZooKeeper::RemoveFuture ZooKeeper::asyncRemove(const std::string & path)
+ZooKeeper::RemoveFuture ZooKeeper::asyncRemove(const std::string & path, int32_t version)
 {
     RemoveFuture future {
         [path] (int rc)
@@ -915,11 +913,41 @@ ZooKeeper::RemoveFuture ZooKeeper::asyncRemove(const std::string & path)
         }};
 
     int32_t code = zoo_adelete(
-        impl, path.c_str(), -1,
+        impl, path.c_str(), version,
         [] (int rc, const void * data)
         {
             RemoveFuture::TaskPtr owned_task =
                 std::move(const_cast<RemoveFuture::TaskPtr &>(*static_cast<const RemoveFuture::TaskPtr *>(data)));
+            (*owned_task)(rc);
+        },
+        future.task.get());
+
+    ProfileEvents::increment(ProfileEvents::ZooKeeperRemove);
+    ProfileEvents::increment(ProfileEvents::ZooKeeperTransactions);
+
+    if (code != ZOK)
+        throw KeeperException(code, path);
+
+    return future;
+}
+
+ZooKeeper::TryRemoveFuture ZooKeeper::asyncTryRemove(const std::string & path, int32_t version)
+{
+    TryRemoveFuture future {
+        [path] (int rc)
+        {
+            if (rc != ZOK && rc != ZNONODE && rc != ZBADVERSION && rc != ZNOTEMPTY)
+                throw KeeperException(rc, path);
+
+            return rc;
+        }};
+
+    int32_t code = zoo_adelete(
+        impl, path.c_str(), version,
+        [] (int rc, const void * data)
+        {
+            TryRemoveFuture::TaskPtr owned_task =
+                std::move(const_cast<TryRemoveFuture::TaskPtr &>(*static_cast<const TryRemoveFuture::TaskPtr *>(data)));
             (*owned_task)(rc);
         },
         future.task.get());
