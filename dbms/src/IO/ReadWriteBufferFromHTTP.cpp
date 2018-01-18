@@ -4,7 +4,7 @@
 #include <Common/config.h>
 #include <Core/Types.h>
 #include <IO/ReadBufferFromIStream.h>
-#include <Interpreters/DNSCache.h>
+#include <Common/DNSCache.h>
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Version.h>
@@ -27,8 +27,8 @@ namespace ErrorCodes
 ReadWriteBufferFromHTTP::ReadWriteBufferFromHTTP(const Poco::URI & uri,
     const std::string & method_,
     OutStreamCallback out_stream_callback,
-    size_t buffer_size_,
-    const HTTPTimeouts & timeouts)
+    const ConnectionTimeouts & timeouts,
+    size_t buffer_size_)
     : ReadBuffer(nullptr, 0),
       uri{uri},
       method{!method_.empty() ? method_ : out_stream_callback ? Poco::Net::HTTPRequest::HTTP_POST : Poco::Net::HTTPRequest::HTTP_GET},

@@ -1,15 +1,3 @@
-SET experimental_allow_extended_storage_definition_syntax = 1;
-
-SELECT '*** Without PARTITION BY and ORDER BY ***';
-
-DROP TABLE IF EXISTS test.unsorted;
-
-CREATE TABLE test.unsorted(x UInt32) ENGINE UnsortedMergeTree;
-INSERT INTO test.unsorted VALUES (1), (2);
-SELECT * FROM test.unsorted;
-
-DROP TABLE test.unsorted;
-
 SELECT '*** Replicated with sampling ***';
 
 DROP TABLE IF EXISTS test.replicated_with_sampling;

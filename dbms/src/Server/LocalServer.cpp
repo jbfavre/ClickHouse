@@ -4,6 +4,8 @@
 #include <Poco/Util/HelpFormatter.h>
 #include <Poco/Util/OptionCallback.h>
 #include <Poco/String.h>
+#include <Poco/Logger.h>
+#include <Poco/NullChannel.h>
 #include <Databases/DatabaseOrdinary.h>
 #include <Storages/System/attachSystemTables.h>
 #include <Interpreters/Context.h>
@@ -12,7 +14,7 @@
 #include <Interpreters/loadMetadata.h>
 #include <Common/Exception.h>
 #include <Common/Macros.h>
-#include <Common/ConfigProcessor.h>
+#include <Common/ConfigProcessor/ConfigProcessor.h>
 #include <Common/escapeForFileName.h>
 #include <IO/ReadBufferFromString.h>
 #include <IO/WriteBufferFromString.h>
@@ -20,11 +22,11 @@
 #include <Parsers/parseQuery.h>
 #include <Parsers/IAST.h>
 #include <common/ErrorHandlers.h>
-#include <common/ApplicationServerExt.h>
 #include "StatusFile.h"
 #include <Functions/registerFunctions.h>
 #include <AggregateFunctions/registerAggregateFunctions.h>
 #include <TableFunctions/registerTableFunctions.h>
+#include <Storages/registerStorages.h>
 
 
 namespace DB
@@ -49,6 +51,13 @@ LocalServer::~LocalServer()
 void LocalServer::initialize(Poco::Util::Application & self)
 {
     Poco::Util::Application::initialize(self);
+
+    // Turn off server logging to stderr
+    if (config().has("silent"))
+    {
+        Poco::Logger::root().setLevel("none");
+        Poco::Logger::root().setChannel(Poco::AutoPtr<Poco::NullChannel>(new Poco::NullChannel()));
+    }
 }
 
 
@@ -66,14 +75,21 @@ void LocalServer::defineOptions(Poco::Util::OptionSet& _options)
     /// Arguments that define first query creating initial table:
     /// (If structure argument is omitted then initial query is not generated)
     _options.addOption(
-        Poco::Util::Option("structure", "S", "Structe of initial table(list columns names with their types)")
+        Poco::Util::Option("structure", "S", "Structure of initial table(list columns names with their types)")
             .required(false)
             .repeatable(false)
             .argument("[name Type]")
             .binding("table-structure"));
 
+    /// Turn off logging
     _options.addOption(
-        Poco::Util::Option("table", "N", "Name of intial table")
+        Poco::Util::Option("silent", "s", "Quiet mode, print only errors")
+            .required(false)
+            .repeatable(false)
+            .binding("silent"));
+
+    _options.addOption(
+        Poco::Util::Option("table", "N", "Name of initial table")
             .required(false)
             .repeatable(false)
             .argument("[table]")
@@ -87,10 +103,10 @@ void LocalServer::defineOptions(Poco::Util::OptionSet& _options)
             .binding("table-file"));
 
     _options.addOption(
-        Poco::Util::Option("input-format", "if", "Input format of intial table data")
+        Poco::Util::Option("input-format", "if", "Input format of initial table data")
             .required(false)
             .repeatable(false)
-            .argument("[TSV]")
+            .argument("<TSV>")
             .binding("table-data-format"));
 
     /// List of queries to execute
@@ -98,7 +114,7 @@ void LocalServer::defineOptions(Poco::Util::OptionSet& _options)
         Poco::Util::Option("query", "q", "Queries to execute")
             .required(false)
             .repeatable(false)
-            .argument("<query>", true)
+            .argument("<query>")
             .binding("query"));
 
     /// Default Output format
@@ -109,9 +125,9 @@ void LocalServer::defineOptions(Poco::Util::OptionSet& _options)
             .argument("[TSV]", true)
             .binding("output-format"));
 
-    /// Alias for previous one, required for clickhouse-client compability
+    /// Alias for previous one, required for clickhouse-client compatibility
     _options.addOption(
-        Poco::Util::Option("format", "", "Default ouput format")
+        Poco::Util::Option("format", "", "Default output format")
             .required(false)
             .repeatable(false)
             .argument("[TSV]", true)
@@ -140,13 +156,13 @@ void LocalServer::defineOptions(Poco::Util::OptionSet& _options)
 
     /// These arrays prevent "variable tracking size limit exceeded" compiler notice.
     static const char * settings_names[] = {
-#define DECLARE_SETTING(TYPE, NAME, DEFAULT) #NAME,
+#define DECLARE_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) #NAME,
     APPLY_FOR_SETTINGS(DECLARE_SETTING)
 #undef DECLARE_SETTING
     nullptr};
 
     static const char * limits_names[] = {
-#define DECLARE_SETTING(TYPE, NAME, DEFAULT) #NAME,
+#define DECLARE_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) #NAME,
     APPLY_FOR_LIMITS(DECLARE_SETTING)
 #undef DECLARE_SETTING
     nullptr};
@@ -166,13 +182,13 @@ void LocalServer::applyOptions()
     context->setDefaultFormat(config().getString("output-format", config().getString("format", "TSV")));
 
     /// settings and limits could be specified in config file, but passed settings has higher priority
-#define EXTRACT_SETTING(TYPE, NAME, DEFAULT) \
+#define EXTRACT_SETTING(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (config().has(#NAME) && !context->getSettingsRef().NAME.changed) \
             context->setSetting(#NAME, config().getString(#NAME));
         APPLY_FOR_SETTINGS(EXTRACT_SETTING)
 #undef EXTRACT_SETTING
 
-#define EXTRACT_LIMIT(TYPE, NAME, DEFAULT) \
+#define EXTRACT_LIMIT(TYPE, NAME, DEFAULT, DESCRIPTION) \
         if (config().has(#NAME) && !context->getSettingsRef().limits.NAME.changed) \
             context->setSetting(#NAME, config().getString(#NAME));
         APPLY_FOR_LIMITS(EXTRACT_LIMIT)
@@ -203,7 +219,7 @@ void LocalServer::displayHelp()
 }
 
 
-void LocalServer::handleHelp(const std::string & name, const std::string & value)
+void LocalServer::handleHelp(const std::string & /*name*/, const std::string & /*value*/)
 {
     displayHelp();
     stopOptionsProcessing();
@@ -228,7 +244,7 @@ void LocalServer::tryInitPath()
 }
 
 
-int LocalServer::main(const std::vector<std::string> & args)
+int LocalServer::main(const std::vector<std::string> & /*args*/)
 try
 {
     Logger * log = &logger();
@@ -247,10 +263,10 @@ try
     /// Load config files if exists
     if (config().has("config-file") || Poco::File("config.xml").exists())
     {
-        ConfigurationPtr processed_config = ConfigProcessor(false, true)
-            .loadConfig(config().getString("config-file", "config.xml"))
-            .configuration;
-        config().add(processed_config.duplicate(), PRIO_DEFAULT, false);
+        ConfigProcessor config_processor(config().getString("config-file", "config.xml"), false, true);
+        auto loaded_config = config_processor.loadConfig();
+        config_processor.savePreprocessedConfig(loaded_config);
+        config().add(loaded_config.configuration.duplicate(), PRIO_DEFAULT, false);
     }
 
     context = std::make_unique<Context>(Context::createGlobal());
@@ -271,6 +287,7 @@ try
     registerFunctions();
     registerAggregateFunctions();
     registerTableFunctions();
+    registerStorages();
 
     /// Maybe useless
     if (config().has("macros"))
@@ -303,7 +320,7 @@ try
     /** Init dummy default DB
       * NOTE: We force using isolated default database to avoid conflicts with default database from server enviroment
       * Otherwise, metadata of temporary File(format, EXPLICIT_PATH) tables will pollute metadata/ directory;
-      *  if such tables will not be dropped, clickhouse-server can not load them due to security reasons.
+      *  if such tables will not be dropped, clickhouse-server will not be able to load them due to security reasons.
       */
     const std::string default_database = "_local";
     context->addDatabase(default_database, std::make_shared<DatabaseMemory>(default_database));
@@ -452,8 +469,11 @@ void LocalServer::setupUsers()
 
     if (config().has("users_config") || config().has("config-file") || Poco::File("config.xml").exists())
     {
-        auto users_config_path = config().getString("users_config", config().getString("config-file", "config.xml"));
-        users_config = ConfigProcessor().loadConfig(users_config_path).configuration;
+        const auto users_config_path = config().getString("users_config", config().getString("config-file", "config.xml"));
+        ConfigProcessor config_processor(users_config_path);
+        const auto loaded_config = config_processor.loadConfig();
+        config_processor.savePreprocessedConfig(loaded_config);
+        users_config = loaded_config.configuration;
     }
     else
     {
@@ -472,4 +492,18 @@ void LocalServer::setupUsers()
 
 }
 
-YANDEX_APP_MAIN_FUNC(DB::LocalServer, mainEntryClickHouseLocal);
+int mainEntryClickHouseLocal(int argc, char ** argv)
+{
+    DB::LocalServer app;
+    try
+    {
+        app.init(argc, argv);
+        return app.run();
+    }
+    catch (...)
+    {
+        std::cerr << DB::getCurrentExceptionMessage(true) << "\n";
+        auto code = DB::getCurrentExceptionCode();
+        return code ? code : 1;
+    }
+}

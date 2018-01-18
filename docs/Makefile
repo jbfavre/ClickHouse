@@ -9,7 +9,7 @@ BUILDDIR      = build
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don't have Sphinx installed, grab it from http://sphinx-doc.org/)
+$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you do not have Sphinx installed, grab it from http://sphinx-doc.org/ )
 endif
 
 # Internal variables.
@@ -26,6 +26,7 @@ default:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) en $(BUILDDIR)/docs/en
 	$(SPHINXBUILD) -b singlehtml $(SPHINXOPTS) ru $(BUILDDIR)/docs/ru/single
 	$(SPHINXBUILD) -b singlehtml $(SPHINXOPTS) en $(BUILDDIR)/docs/en/single
+	perl -pi -e 's|external\\" href=\\"[^#":]+#|external\\" href=\\"#|g' $(BUILDDIR)/docs/ru/single/index.html $(BUILDDIR)/docs/en/single/index.html
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -181,4 +182,3 @@ pseudoxml:
 	$(SPHINXBUILD) -b pseudoxml $(ALLSPHINXOPTS) $(BUILDDIR)/pseudoxml
 	@echo
 	@echo "Build finished. The pseudo-XML files are in $(BUILDDIR)/pseudoxml."
-

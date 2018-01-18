@@ -76,9 +76,10 @@ void ReplicatedMergeTreeRestartingThread::run()
                 {
                     LOG_WARNING(log, "ZooKeeper session has expired. Switching to a new session.");
 
-                    if (!storage.is_readonly)
+                    bool old_val = false;
+                    if (storage.is_readonly.compare_exchange_strong(old_val, true))
                         CurrentMetrics::add(CurrentMetrics::ReadonlyReplica);
-                    storage.is_readonly = true;
+
                     partialShutdown();
                 }
 
@@ -109,9 +110,10 @@ void ReplicatedMergeTreeRestartingThread::run()
                 if (need_stop)
                     break;
 
-                if (storage.is_readonly)
+                bool old_val = true;
+                if (storage.is_readonly.compare_exchange_strong(old_val, false))
                     CurrentMetrics::sub(CurrentMetrics::ReadonlyReplica);
-                storage.is_readonly = false;
+
                 first_time = false;
             }
 
@@ -129,7 +131,7 @@ void ReplicatedMergeTreeRestartingThread::run()
 
                 prev_time_of_check_delay = current_time;
 
-                /// We give up leadership if the relative gap is greater than threshold.
+                /// We give up leadership if the relative lag is greater than threshold.
                 if (storage.is_leader_node
                     && relative_delay > static_cast<time_t>(storage.data.settings.min_relative_delay_to_yield_leadership))
                 {
@@ -138,15 +140,11 @@ void ReplicatedMergeTreeRestartingThread::run()
 
                     ProfileEvents::increment(ProfileEvents::ReplicaYieldLeadership);
 
-                    if (storage.is_leader_node)
-                    {
-                        storage.is_leader_node = false;
-                        CurrentMetrics::sub(CurrentMetrics::LeaderReplica);
-                        if (storage.merge_selecting_thread.joinable())
-                            storage.merge_selecting_thread.join();
-
-                        storage.leader_election->yield();
-                    }
+                    storage.is_leader_node = false;
+                    CurrentMetrics::sub(CurrentMetrics::LeaderReplica);
+                    if (storage.merge_selecting_thread.joinable())
+                        storage.merge_selecting_thread.join();
+                    storage.leader_election->yield();
                 }
             }
         }
@@ -162,18 +160,6 @@ void ReplicatedMergeTreeRestartingThread::run()
     {
         storage.data_parts_exchange_endpoint_holder->cancelForever();
         storage.data_parts_exchange_endpoint_holder = nullptr;
-
-        storage.disk_space_monitor_endpoint_holder->cancelForever();
-        storage.disk_space_monitor_endpoint_holder = nullptr;
-
-        storage.sharded_partition_uploader_endpoint_holder->cancelForever();
-        storage.sharded_partition_uploader_endpoint_holder = nullptr;
-
-        storage.remote_query_executor_endpoint_holder->cancelForever();
-        storage.remote_query_executor_endpoint_holder = nullptr;
-
-        storage.remote_part_checker_endpoint_holder->cancelForever();
-        storage.remote_part_checker_endpoint_holder = nullptr;
 
         storage.merger.merges_blocker.cancelForever();
 
@@ -375,9 +361,9 @@ void ReplicatedMergeTreeRestartingThread::partialShutdown()
     {
         std::lock_guard<std::mutex> lock(storage.leader_node_mutex);
 
-        if (storage.is_leader_node)
+        bool old_val = true;
+        if (storage.is_leader_node.compare_exchange_strong(old_val, false))
         {
-            storage.is_leader_node = false;
             CurrentMetrics::sub(CurrentMetrics::LeaderReplica);
             if (storage.merge_selecting_thread.joinable())
                 storage.merge_selecting_thread.join();

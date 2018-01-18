@@ -19,7 +19,8 @@ class ReplicatedMergeTreeBlockOutputStream;
 class PushingToViewsBlockOutputStream : public IBlockOutputStream
 {
 public:
-    PushingToViewsBlockOutputStream(String database, String table, const Context & context_, const ASTPtr & query_ptr_, bool no_destination = false);
+    PushingToViewsBlockOutputStream(String database, String table, StoragePtr storage,
+        const Context & context_, const ASTPtr & query_ptr_, bool no_destination = false);
 
     void write(const Block & block) override;
 
@@ -42,7 +43,6 @@ public:
     }
 
 private:
-
     StoragePtr storage;
     BlockOutputStreamPtr output;
     ReplicatedMergeTreeBlockOutputStream * replicated_output = nullptr;
@@ -50,7 +50,15 @@ private:
     const Context & context;
     ASTPtr query_ptr;
 
-    std::vector<std::pair<ASTPtr, BlockOutputStreamPtr>> views;
+    struct ViewInfo
+    {
+        ASTPtr query;
+        String database;
+        String table;
+        BlockOutputStreamPtr out;
+    };
+
+    std::vector<ViewInfo> views;
     std::unique_ptr<Context> views_context;
 };
 

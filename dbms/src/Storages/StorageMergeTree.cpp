@@ -1,5 +1,5 @@
-#include <experimental/optional>
-#include <Core/FieldVisitors.h>
+#include <optional>
+#include <Common/FieldVisitors.h>
 #include <Storages/StorageMergeTree.h>
 #include <Storages/MergeTree/MergeTreeBlockOutputStream.h>
 #include <Storages/MergeTree/DiskSpaceMonitor.h>
@@ -34,7 +34,7 @@ StorageMergeTree::StorageMergeTree(
     const String & path_,
     const String & database_name_,
     const String & table_name_,
-    NamesAndTypesListPtr columns_,
+    const NamesAndTypesList & columns_,
     const NamesAndTypesList & materialized_columns_,
     const NamesAndTypesList & alias_columns_,
     const ColumnDefaults & column_defaults_,
@@ -55,7 +55,7 @@ StorageMergeTree::StorageMergeTree(
          materialized_columns_, alias_columns_, column_defaults_,
          context_, primary_expr_ast_, date_column_name, partition_expr_ast_,
          sampling_expression_, merging_params_,
-         settings_, database_name_ + "." + table_name, false, attach),
+         settings_, false, attach),
     reader(data), writer(data), merger(data, context.getBackgroundPool()),
     log(&Logger::get(database_name_ + "." + table_name + " (StorageMergeTree)"))
 {
@@ -109,10 +109,10 @@ BlockInputStreams StorageMergeTree::read(
     const size_t max_block_size,
     const unsigned num_streams)
 {
-    return reader.read(column_names, query_info, context, processed_stage, max_block_size, num_streams, nullptr, 0);
+    return reader.read(column_names, query_info, context, processed_stage, max_block_size, num_streams, 0);
 }
 
-BlockOutputStreamPtr StorageMergeTree::write(const ASTPtr & query, const Settings & settings)
+BlockOutputStreamPtr StorageMergeTree::write(const ASTPtr & /*query*/, const Settings & /*settings*/)
 {
     return std::make_shared<MergeTreeBlockOutputStream>(*this);
 }
@@ -130,11 +130,11 @@ void StorageMergeTree::drop()
     data.dropAllData();
 }
 
-void StorageMergeTree::rename(const String & new_path_to_db, const String & new_database_name, const String & new_table_name)
+void StorageMergeTree::rename(const String & new_path_to_db, const String & /*new_database_name*/, const String & new_table_name)
 {
     std::string new_full_path = new_path_to_db + escapeForFileName(new_table_name) + '/';
 
-    data.setPath(new_full_path, true);
+    data.setPath(new_full_path);
 
     path = new_path_to_db;
     table_name = new_table_name;
@@ -181,9 +181,6 @@ void StorageMergeTree::alter(
             new_primary_key_ast = param.primary_key;
         }
     }
-
-    if (primary_key_is_modified && data.merging_params.mode == MergeTreeData::MergingParams::Unsorted)
-        throw Exception("UnsortedMergeTree cannot have primary key", ErrorCodes::BAD_ARGUMENTS);
 
     if (primary_key_is_modified && supportsSampling())
         throw Exception("MODIFY PRIMARY KEY only supported for tables without sampling key", ErrorCodes::BAD_ARGUMENTS);
@@ -302,7 +299,7 @@ bool StorageMergeTree::merge(
     MergeTreeDataMerger::FuturePart future_part;
 
     /// You must call destructor with unlocked `currently_merging_mutex`.
-    std::experimental::optional<CurrentlyMergingPartsTagger> merging_tagger;
+    std::optional<CurrentlyMergingPartsTagger> merging_tagger;
 
     {
         std::lock_guard<std::mutex> lock(currently_merging_mutex);
@@ -444,12 +441,13 @@ void StorageMergeTree::clearColumnInPartition(const ASTPtr & partition, const Fi
     for (auto & transaction : transactions)
         transaction->commit();
 
+    /// Recalculate columns size (not only for the modified column)
     data.recalculateColumnSizes();
 }
 
 
 bool StorageMergeTree::optimize(
-    const ASTPtr & query, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
+    const ASTPtr & /*query*/, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
 {
     String partition_id;
     if (partition)
@@ -458,7 +456,7 @@ bool StorageMergeTree::optimize(
 }
 
 
-void StorageMergeTree::dropPartition(const ASTPtr & query, const ASTPtr & partition, bool detach, const Context & context)
+void StorageMergeTree::dropPartition(const ASTPtr & /*query*/, const ASTPtr & partition, bool detach, const Context & context)
 {
     /// Asks to complete merges and does not allow them to start.
     /// This protects against "revival" of data for a removed partition after completion of merge.

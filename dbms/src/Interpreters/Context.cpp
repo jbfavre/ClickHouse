@@ -20,12 +20,12 @@
 #include <Storages/IStorage.h>
 #include <Storages/MarkCache.h>
 #include <Storages/MergeTree/BackgroundProcessingPool.h>
-#include <Storages/MergeTree/ReshardingWorker.h>
 #include <Storages/MergeTree/MergeList.h>
 #include <Storages/MergeTree/MergeTreeSettings.h>
 #include <Storages/CompressionSettingsSelector.h>
 #include <Interpreters/Settings.h>
-#include <Interpreters/Users.h>
+#include <Interpreters/RuntimeComponentsFactory.h>
+#include <Interpreters/ISecurityManager.h>
 #include <Interpreters/Quota.h>
 #include <Interpreters/EmbeddedDictionaries.h>
 #include <Interpreters/ExternalDictionaries.h>
@@ -38,14 +38,14 @@
 #include <Interpreters/QueryLog.h>
 #include <Interpreters/PartLog.h>
 #include <Interpreters/Context.h>
-#include <Interpreters/DNSCache.h>
+#include <Common/DNSCache.h>
 #include <IO/ReadBufferFromFile.h>
 #include <IO/UncompressedCache.h>
 #include <Parsers/ASTCreateQuery.h>
 #include <Parsers/ParserCreateQuery.h>
 #include <Parsers/parseQuery.h>
 
-#include <Common/ConfigProcessor.h>
+#include <Common/ConfigProcessor/ConfigProcessor.h>
 #include <Common/ZooKeeper/ZooKeeper.h>
 #include <common/logger_useful.h>
 
@@ -90,6 +90,8 @@ struct ContextShared
 {
     Logger * log = &Logger::get("Context");
 
+    std::shared_ptr<IRuntimeComponentsFactory> runtime_components_factory;
+
     /// For access of most of shared objects. Recursive mutex.
     mutable Poco::Mutex mutex;
     /// Separate mutex for access of dictionaries. Separate mutex to avoid locks when server doing request to itself.
@@ -115,7 +117,7 @@ struct ContextShared
     mutable std::shared_ptr<ExternalDictionaries> external_dictionaries;
     mutable std::shared_ptr<ExternalModels> external_models;
     String default_profile_name;                            /// Default profile name used for default values.
-    Users users;                                            /// Known users.
+    std::shared_ptr<ISecurityManager> security_manager;     /// Known users.
     Quotas quotas;                                          /// Known quotas for resource use.
     mutable UncompressedCachePtr uncompressed_cache;        /// The cache of decompressed blocks.
     mutable MarkCachePtr mark_cache;                        /// Cache of marks in compressed files.
@@ -125,7 +127,6 @@ struct ContextShared
     ConfigurationPtr users_config;                          /// Config with the users, profiles and quotas sections.
     InterserverIOHandler interserver_io_handler;            /// Handler for interserver communication.
     BackgroundProcessingPoolPtr background_pool;            /// The thread pool for the background work performed by the tables.
-    ReshardingWorkerPtr resharding_worker;
     Macros macros;                                          /// Substitutions extracted from config.
     std::unique_ptr<Compiler> compiler;                     /// Used for dynamic compilation of queries' parts if it necessary.
     std::shared_ptr<DDLWorker> ddl_worker;                  /// Process ddl commands from zk.
@@ -133,6 +134,7 @@ struct ContextShared
     mutable std::unique_ptr<CompressionSettingsSelector> compression_settings_selector;
     std::unique_ptr<MergeTreeSettings> merge_tree_settings; /// Settings of MergeTree* engines.
     size_t max_table_size_to_drop = 50000000000lu;          /// Protects MergeTree tables from accidental DROP (50GB by default)
+    String format_schema_path;                              /// Path to a directory that contains schema files used by input formats.
 
 
     /// Named sessions. The user could specify session identifier to reuse settings and temporary tables in subsequent requests.
@@ -180,7 +182,8 @@ struct ContextShared
 
     pcg64 rng{randomSeed()};
 
-    ContextShared()
+    ContextShared(std::shared_ptr<IRuntimeComponentsFactory> runtime_components_factory_)
+        : runtime_components_factory(std::move(runtime_components_factory_))
     {
         /// TODO: make it singleton (?)
         static std::atomic<size_t> num_calls{0};
@@ -190,6 +193,8 @@ struct ContextShared
             std::cerr.flush();
             std::terminate();
         }
+
+        initialize();
     }
 
 
@@ -235,21 +240,32 @@ struct ContextShared
             databases.clear();
         }
     }
+
+private:
+    void initialize()
+    {
+       security_manager = runtime_components_factory->createSecurityManager();
+    }
 };
 
 
 Context::Context() = default;
 
 
-Context Context::createGlobal()
+Context Context::createGlobal(std::shared_ptr<IRuntimeComponentsFactory> runtime_components_factory)
 {
     Context res;
-    res.shared = std::make_shared<ContextShared>();
+    res.runtime_components_factory = runtime_components_factory;
+    res.shared = std::make_shared<ContextShared>(runtime_components_factory);
     res.quota = std::make_shared<QuotaForIntervals>();
     res.system_logs = std::make_shared<SystemLogs>();
     return res;
 }
 
+Context Context::createGlobal()
+{
+    return createGlobal(std::make_unique<RuntimeComponentsFactory>());
+}
 
 Context::~Context()
 {
@@ -511,7 +527,7 @@ void Context::setUsersConfig(const ConfigurationPtr & config)
 {
     auto lock = getLock();
     shared->users_config = config;
-    shared->users.loadFromConfig(*shared->users_config);
+    shared->security_manager->loadFromConfig(*shared->users_config);
     shared->quotas.loadFromConfig(*shared->users_config);
 }
 
@@ -525,7 +541,7 @@ void Context::calculateUserSettings()
 {
     auto lock = getLock();
 
-    String profile = shared->users.get(client_info.current_user).profile;
+    String profile = shared->security_manager->getUser(client_info.current_user)->profile;
 
     /// 1) Set default settings (hardcoded values)
     /// NOTE: we ignore global_context settings (from which it is usually copied)
@@ -546,7 +562,7 @@ void Context::setUser(const String & name, const String & password, const Poco::
 {
     auto lock = getLock();
 
-    const User & user_props = shared->users.get(name, password, address.host());
+    auto user_props = shared->security_manager->authorizeAndGetUser(name, password, address.host());
 
     client_info.current_user = name;
     client_info.current_address = address;
@@ -556,7 +572,7 @@ void Context::setUser(const String & name, const String & password, const Poco::
 
     calculateUserSettings();
 
-    setQuota(user_props.quota, quota_key, name, address.host());
+    setQuota(user_props->quota, quota_key, name, address.host());
 }
 
 
@@ -581,7 +597,7 @@ void Context::checkDatabaseAccessRights(const std::string & database_name) const
          /// All users have access to the database system.
         return;
     }
-    if (!shared->users.isAllowedDatabase(client_info.current_user, database_name))
+    if (!shared->security_manager->hasAccessToDatabase(client_info.current_user, database_name))
         throw Exception("Access denied to database " + database_name, ErrorCodes::DATABASE_ACCESS_DENIED);
 }
 
@@ -820,7 +836,7 @@ StoragePtr Context::tryRemoveExternalTable(const String & table_name)
     return {};
 }
 
-DDLGuard::DDLGuard(Map & map_, std::mutex & mutex_, std::unique_lock<std::mutex> && lock, const String & elem, const String & message)
+DDLGuard::DDLGuard(Map & map_, std::mutex & mutex_, std::unique_lock<std::mutex> && /*lock*/, const String & elem, const String & message)
     : map(map_), mutex(mutex_)
 {
     bool inserted;
@@ -1081,7 +1097,14 @@ EmbeddedDictionaries & Context::getEmbeddedDictionariesImpl(const bool throw_on_
     std::lock_guard<std::mutex> lock(shared->embedded_dictionaries_mutex);
 
     if (!shared->embedded_dictionaries)
-        shared->embedded_dictionaries = std::make_shared<EmbeddedDictionaries>(*this->global_context, throw_on_error);
+    {
+        auto geo_dictionaries_loader = runtime_components_factory->createGeoDictionariesLoader();
+
+        shared->embedded_dictionaries = std::make_shared<EmbeddedDictionaries>(
+            std::move(geo_dictionaries_loader),
+            *this->global_context,
+            throw_on_error);
+    }
 
     return *shared->embedded_dictionaries;
 }
@@ -1095,7 +1118,13 @@ ExternalDictionaries & Context::getExternalDictionariesImpl(const bool throw_on_
     {
         if (!this->global_context)
             throw Exception("Logical error: there is no global context", ErrorCodes::LOGICAL_ERROR);
-        shared->external_dictionaries = std::make_shared<ExternalDictionaries>(*this->global_context, throw_on_error);
+
+        auto config_repository = runtime_components_factory->createExternalDictionariesConfigRepository();
+
+        shared->external_dictionaries = std::make_shared<ExternalDictionaries>(
+            std::move(config_repository),
+            *this->global_context,
+            throw_on_error);
     }
 
     return *shared->external_dictionaries;
@@ -1109,7 +1138,13 @@ ExternalModels & Context::getExternalModelsImpl(bool throw_on_error) const
     {
         if (!this->global_context)
             throw Exception("Logical error: there is no global context", ErrorCodes::LOGICAL_ERROR);
-        shared->external_models = std::make_shared<ExternalModels>(*this->global_context, throw_on_error);
+
+        auto config_repository = runtime_components_factory->createExternalModelsConfigRepository();
+
+        shared->external_models = std::make_shared<ExternalModels>(
+            std::move(config_repository),
+            *this->global_context,
+            throw_on_error);
     }
 
     return *shared->external_models;
@@ -1228,23 +1263,6 @@ BackgroundProcessingPool & Context::getBackgroundPool()
     return *shared->background_pool;
 }
 
-void Context::setReshardingWorker(std::shared_ptr<ReshardingWorker> resharding_worker)
-{
-    auto lock = getLock();
-    if (shared->resharding_worker)
-        throw Exception("Resharding background thread has already been initialized.", ErrorCodes::LOGICAL_ERROR);
-    shared->resharding_worker = resharding_worker;
-}
-
-ReshardingWorker & Context::getReshardingWorker() const
-{
-    auto lock = getLock();
-    if (!shared->resharding_worker)
-        throw Exception("Resharding background thread not initialized: resharding missing in configuration file.",
-            ErrorCodes::LOGICAL_ERROR);
-    return *shared->resharding_worker;
-}
-
 void Context::setDDLWorker(std::shared_ptr<DDLWorker> ddl_worker)
 {
     auto lock = getLock();
@@ -1330,15 +1348,21 @@ std::shared_ptr<Cluster> Context::tryGetCluster(const std::string & cluster_name
 }
 
 
+void Context::reloadClusterConfig()
+{
+    std::lock_guard<std::mutex> lock(shared->clusters_mutex);
+    auto & config = shared->clusters_config ? *shared->clusters_config : getConfigRef();
+    shared->clusters = std::make_unique<Clusters>(config, settings);
+}
+
+
 Clusters & Context::getClusters() const
 {
+    std::lock_guard<std::mutex> lock(shared->clusters_mutex);
+    if (!shared->clusters)
     {
-        std::lock_guard<std::mutex> lock(shared->clusters_mutex);
-        if (!shared->clusters)
-        {
-            auto & config = shared->clusters_config ? *shared->clusters_config : getConfigRef();
-            shared->clusters = std::make_unique<Clusters>(config, settings);
-        }
+        auto & config = shared->clusters_config ? *shared->clusters_config : getConfigRef();
+        shared->clusters = std::make_unique<Clusters>(config, settings);
     }
 
     return *shared->clusters;
@@ -1564,6 +1588,16 @@ String Context::getDefaultProfileName() const
 void Context::setDefaultProfileName(const String & name)
 {
     shared->default_profile_name = name;
+}
+
+String Context::getFormatSchemaPath() const
+{
+    return shared->format_schema_path;
+}
+
+void Context::setFormatSchemaPath(const String & path)
+{
+    shared->format_schema_path = path;
 }
 
 

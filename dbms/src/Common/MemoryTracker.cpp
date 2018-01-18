@@ -149,8 +149,11 @@ void MemoryTracker::setOrRaiseLimit(Int64 value)
         ;
 }
 
-
+#if __APPLE__ && __clang__
+__thread MemoryTracker * current_memory_tracker = nullptr;
+#else
 thread_local MemoryTracker * current_memory_tracker = nullptr;
+#endif
 
 namespace CurrentMemoryTracker
 {

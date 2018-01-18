@@ -1,5 +1,5 @@
 #include <Interpreters/InterpreterSystemQuery.h>
-#include <Interpreters/DNSCache.h>
+#include <Common/DNSCache.h>
 #include <Interpreters/Context.h>
 #include <Interpreters/ExternalDictionaries.h>
 #include <Interpreters/EmbeddedDictionaries.h>
@@ -75,6 +75,8 @@ BlockIO InterpreterSystemQuery::execute()
             break;
         case Type::DROP_DNS_CACHE:
             DNSCache::instance().drop();
+            /// Reinitialize clusters to update their resolved_addresses
+            context.reloadClusterConfig();
             break;
         case Type::DROP_MARK_CACHE:
             context.dropMarkCache();

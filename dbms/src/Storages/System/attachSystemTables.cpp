@@ -12,9 +12,11 @@
 #include <Storages/System/StorageSystemGraphite.h>
 #include <Storages/System/StorageSystemMerges.h>
 #include <Storages/System/StorageSystemMetrics.h>
+#include <Storages/System/StorageSystemModels.h>
 #include <Storages/System/StorageSystemNumbers.h>
 #include <Storages/System/StorageSystemOne.h>
 #include <Storages/System/StorageSystemParts.h>
+#include <Storages/System/StorageSystemPartsColumns.h>
 #include <Storages/System/StorageSystemProcesses.h>
 #include <Storages/System/StorageSystemReplicas.h>
 #include <Storages/System/StorageSystemReplicationQueue.h>
@@ -44,12 +46,14 @@ void attachSystemTablesServer(IDatabase & system_database, bool has_zookeeper)
 {
     attachSystemTablesLocal(system_database);
     system_database.attachTable("parts", StorageSystemParts::create("parts"));
+    system_database.attachTable("parts_columns", StorageSystemPartsColumns::create("parts_columns"));
     system_database.attachTable("processes", StorageSystemProcesses::create("processes"));
     system_database.attachTable("metrics", StorageSystemMetrics::create("metrics"));
     system_database.attachTable("merges", StorageSystemMerges::create("merges"));
     system_database.attachTable("replicas", StorageSystemReplicas::create("replicas"));
     system_database.attachTable("replication_queue", StorageSystemReplicationQueue::create("replication_queue"));
     system_database.attachTable("dictionaries", StorageSystemDictionaries::create("dictionaries"));
+    system_database.attachTable("models", StorageSystemModels::create("models"));
     system_database.attachTable("clusters", StorageSystemClusters::create("clusters"));
     system_database.attachTable("graphite_retentions", StorageSystemGraphite::create("graphite_retentions"));
 

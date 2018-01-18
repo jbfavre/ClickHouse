@@ -38,6 +38,9 @@ Block IProfilingBlockInputStream::read()
     if (is_cancelled.load(std::memory_order_seq_cst))
         return res;
 
+    if (!checkTimeLimits())
+        limit_exceeded_need_break = true;
+
     if (!limit_exceeded_need_break)
         res = readImpl();
 
@@ -48,7 +51,7 @@ Block IProfilingBlockInputStream::read()
         if (enabled_extremes)
             updateExtremes(res);
 
-        if (!checkLimits())
+        if (!checkDataSizeLimits())
             limit_exceeded_need_break = true;
 
         if (quota != nullptr)
@@ -91,36 +94,48 @@ void IProfilingBlockInputStream::readSuffix()
 
 void IProfilingBlockInputStream::updateExtremes(Block & block)
 {
-    size_t columns = block.columns();
+    size_t num_columns = block.columns();
 
     if (!extremes)
     {
-        extremes = block.cloneEmpty();
+        MutableColumns extremes_columns(num_columns);
 
-        for (size_t i = 0; i < columns; ++i)
+        for (size_t i = 0; i < num_columns; ++i)
         {
-            Field min_value;
-            Field max_value;
+            const ColumnPtr & src = block.safeGetByPosition(i).column;
 
-            block.safeGetByPosition(i).column->getExtremes(min_value, max_value);
+            if (src->isColumnConst())
+            {
+                /// Equal min and max.
+                extremes_columns[i] = src->cloneResized(2);
+            }
+            else
+            {
+                Field min_value;
+                Field max_value;
 
-            ColumnPtr & column = extremes.safeGetByPosition(i).column;
+                src->getExtremes(min_value, max_value);
 
-            if (auto converted = column->convertToFullColumnIfConst())
-                column = converted;
+                extremes_columns[i] = src->cloneEmpty();
 
-            column->insert(min_value);
-            column->insert(max_value);
+                extremes_columns[i]->insert(min_value);
+                extremes_columns[i]->insert(max_value);
+            }
         }
+
+        extremes = block.cloneWithColumns(std::move(extremes_columns));
     }
     else
     {
-        for (size_t i = 0; i < columns; ++i)
+        for (size_t i = 0; i < num_columns; ++i)
         {
-            ColumnPtr & column = extremes.safeGetByPosition(i).column;
+            ColumnPtr & old_extremes = extremes.safeGetByPosition(i).column;
 
-            Field min_value = (*column)[0];
-            Field max_value = (*column)[1];
+            if (old_extremes->isColumnConst())
+                continue;
+
+            Field min_value = (*old_extremes)[0];
+            Field max_value = (*old_extremes)[1];
 
             Field cur_min_value;
             Field cur_max_value;
@@ -132,51 +147,60 @@ void IProfilingBlockInputStream::updateExtremes(Block & block)
             if (cur_max_value > max_value)
                 max_value = cur_max_value;
 
-            column = column->cloneEmpty();
-            column->insert(min_value);
-            column->insert(max_value);
+            MutableColumnPtr new_extremes = old_extremes->cloneEmpty();
+
+            new_extremes->insert(min_value);
+            new_extremes->insert(max_value);
+
+            old_extremes = std::move(new_extremes);
         }
     }
 }
 
 
-bool IProfilingBlockInputStream::checkLimits()
+static bool handleOverflowMode(OverflowMode mode, const String & message, int code)
 {
-    auto handle_overflow_mode = [] (OverflowMode mode, const String & message, int code)
+    switch (mode)
     {
-        switch (mode)
-        {
-            case OverflowMode::THROW:
-                throw Exception(message, code);
-            case OverflowMode::BREAK:
-                return false;
-            default:
-                throw Exception("Logical error: unknown overflow mode", ErrorCodes::LOGICAL_ERROR);
-        }
-    };
+        case OverflowMode::THROW:
+            throw Exception(message, code);
+        case OverflowMode::BREAK:
+            return false;
+        default:
+            throw Exception("Logical error: unknown overflow mode", ErrorCodes::LOGICAL_ERROR);
+    }
+};
 
+bool IProfilingBlockInputStream::checkDataSizeLimits()
+{
     if (limits.mode == LIMITS_CURRENT)
     {
         /// Check current stream limitations (i.e. max_result_{rows,bytes})
 
         if (limits.max_rows_to_read && info.rows > limits.max_rows_to_read)
-            return handle_overflow_mode(limits.read_overflow_mode,
+            return handleOverflowMode(limits.read_overflow_mode,
                 std::string("Limit for result rows")
                     + " exceeded: read " + toString(info.rows)
                     + " rows, maximum: " + toString(limits.max_rows_to_read),
                 ErrorCodes::TOO_MUCH_ROWS);
 
         if (limits.max_bytes_to_read && info.bytes > limits.max_bytes_to_read)
-            return handle_overflow_mode(limits.read_overflow_mode,
+            return handleOverflowMode(limits.read_overflow_mode,
                 std::string("Limit for result bytes (uncompressed)")
                     + " exceeded: read " + toString(info.bytes)
                     + " bytes, maximum: " + toString(limits.max_bytes_to_read),
                 ErrorCodes::TOO_MUCH_BYTES);
     }
 
+    return true;
+}
+
+
+bool IProfilingBlockInputStream::checkTimeLimits()
+{
     if (limits.max_execution_time != 0
         && info.total_stopwatch.elapsed() > static_cast<UInt64>(limits.max_execution_time.totalMicroseconds()) * 1000)
-        return handle_overflow_mode(limits.timeout_overflow_mode,
+        return handleOverflowMode(limits.timeout_overflow_mode,
             "Timeout exceeded: elapsed " + toString(info.total_stopwatch.elapsedSeconds())
                 + " seconds, maximum: " + toString(limits.max_execution_time.totalMicroseconds() / 1000000.0),
             ErrorCodes::TIMEOUT_EXCEEDED);
@@ -299,7 +323,7 @@ void IProfilingBlockInputStream::progressImpl(const Progress & value)
 
         if (quota != nullptr && limits.mode == LIMITS_TOTAL)
         {
-            quota->checkAndAddReadRowsBytes(time(0), value.rows, value.bytes);
+            quota->checkAndAddReadRowsBytes(time(nullptr), value.rows, value.bytes);
         }
     }
 }
@@ -375,10 +399,9 @@ const Block & IProfilingBlockInputStream::getExtremes() const
 
 void IProfilingBlockInputStream::collectTotalRowsApprox()
 {
-    if (collected_total_rows_approx)
+    bool old_val = false;
+    if (!collected_total_rows_approx.compare_exchange_strong(old_val, true))
         return;
-
-    collected_total_rows_approx = true;
 
     for (auto & child : children)
     {
@@ -398,6 +421,5 @@ void IProfilingBlockInputStream::collectAndSendTotalRowsApprox()
     collectTotalRowsApprox();
     progressImpl(Progress(0, 0, total_rows_approx));
 }
-
 
 }

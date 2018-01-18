@@ -1,15 +1,20 @@
 #include <Interpreters/InterpreterSelectQuery.h>
 #include <Interpreters/InterpreterInsertQuery.h>
 #include <Interpreters/InterpreterAlterQuery.h>
+#include <Interpreters/evaluateConstantExpression.h>
 #include <DataStreams/IProfilingBlockInputStream.h>
 #include <Databases/IDatabase.h>
 #include <Storages/StorageBuffer.h>
+#include <Storages/StorageFactory.h>
 #include <Parsers/ASTInsertQuery.h>
 #include <Parsers/ASTIdentifier.h>
+#include <Parsers/ASTLiteral.h>
 #include <Parsers/ASTExpressionList.h>
 #include <Common/setThreadName.h>
 #include <Common/CurrentMetrics.h>
 #include <Common/MemoryTracker.h>
+#include <Common/FieldVisitors.h>
+#include <Common/typeid_cast.h>
 #include <common/logger_useful.h>
 #include <Poco/Ext/ThreadNumber.h>
 
@@ -40,10 +45,11 @@ namespace ErrorCodes
 {
     extern const int INFINITE_LOOP;
     extern const int BLOCKS_HAVE_DIFFERENT_STRUCTURE;
+    extern const int NUMBER_OF_ARGUMENTS_DOESNT_MATCH;
 }
 
 
-StorageBuffer::StorageBuffer(const std::string & name_, NamesAndTypesListPtr columns_,
+StorageBuffer::StorageBuffer(const std::string & name_, const NamesAndTypesList & columns_,
     const NamesAndTypesList & materialized_columns_,
     const NamesAndTypesList & alias_columns_,
     const ColumnDefaults & column_defaults_,
@@ -97,10 +103,7 @@ protected:
             return res;
 
         for (const auto & name : column_names)
-        {
-            auto & col = buffer.data.getByName(name);
-            res.insert(ColumnWithTypeAndName(col.column->clone(), col.type, name));
-        }
+            res.insert(buffer.data.getByName(name));
 
         return res;
     }
@@ -156,6 +159,10 @@ static void appendBlock(const Block & from, Block & to)
     if (!to)
         throw Exception("Cannot append to empty block", ErrorCodes::LOGICAL_ERROR);
 
+    if (!blocksHaveEqualStructure(from, to))
+        throw Exception("Cannot append block to buffer: block has different structure. "
+            "Block: " + from.dumpStructure() + ", Buffer: " + to.dumpStructure(), ErrorCodes::BLOCKS_HAVE_DIFFERENT_STRUCTURE);
+
     from.checkNumberOfRows();
     to.checkNumberOfRows();
 
@@ -171,14 +178,12 @@ static void appendBlock(const Block & from, Block & to)
     {
         for (size_t column_no = 0, columns = to.columns(); column_no < columns; ++column_no)
         {
-            const IColumn & col_from = *from.safeGetByPosition(column_no).column.get();
-            IColumn & col_to = *to.safeGetByPosition(column_no).column.get();
+            const IColumn & col_from = *from.getByPosition(column_no).column.get();
+            MutableColumnPtr col_to = to.getByPosition(column_no).column->mutate();
 
-            if (col_from.getName() != col_to.getName())
-                throw Exception("Cannot append block to another: different type of columns at index " + toString(column_no)
-                    + ". Block 1: " + from.dumpStructure() + ". Block 2: " + to.dumpStructure(), ErrorCodes::BLOCKS_HAVE_DIFFERENT_STRUCTURE);
+            col_to->insertRangeFrom(col_from, 0, rows);
 
-            col_to.insertRangeFrom(col_from, 0, rows);
+            to.getByPosition(column_no).column = std::move(col_to);
         }
     }
     catch (...)
@@ -191,9 +196,9 @@ static void appendBlock(const Block & from, Block & to)
 
             for (size_t column_no = 0, columns = to.columns(); column_no < columns; ++column_no)
             {
-                ColumnPtr & col_to = to.safeGetByPosition(column_no).column;
+                ColumnPtr & col_to = to.getByPosition(column_no).column;
                 if (col_to->size() != old_rows)
-                    col_to = col_to->cut(0, old_rows);
+                    col_to = col_to->mutate()->cut(0, old_rows);
             }
         }
         catch (...)
@@ -325,7 +330,7 @@ private:
 };
 
 
-BlockOutputStreamPtr StorageBuffer::write(const ASTPtr & query, const Settings & settings)
+BlockOutputStreamPtr StorageBuffer::write(const ASTPtr & /*query*/, const Settings & /*settings*/)
 {
     return std::make_shared<BufferBlockOutputStream>(*this);
 }
@@ -365,7 +370,7 @@ void StorageBuffer::shutdown()
   *
   * This kind of race condition make very hard to implement proper tests.
   */
-bool StorageBuffer::optimize(const ASTPtr & query, const ASTPtr & partition, bool final, bool deduplicate, const Context & context)
+bool StorageBuffer::optimize(const ASTPtr & /*query*/, const ASTPtr & partition, bool final, bool deduplicate, const Context & /*context*/)
 {
     if (partition)
         throw Exception("Partition cannot be specified when optimizing table of type Buffer", ErrorCodes::NOT_IMPLEMENTED);
@@ -474,7 +479,7 @@ void StorageBuffer::flushBuffer(Buffer & buffer, bool check_thresholds)
         return;
 
     /** For simplicity, buffer is locked during write.
-        * We could unlock buffer temporary, but it would lead to too much difficulties:
+        * We could unlock buffer temporary, but it would lead to too many difficulties:
         * - data, that is written, will not be visible for SELECTs;
         * - new data could be appended to buffer, and in case of exception, we must merge it with old data, that has not been written;
         * - this could lead to infinite memory growth.
@@ -530,7 +535,7 @@ void StorageBuffer::writeBlockToDestination(const Block & block, StoragePtr tabl
         auto dst_col = structure_of_destination_table.getByPosition(i);
         if (block.has(dst_col.name))
         {
-            if (block.getByName(dst_col.name).type->getName() != dst_col.type->getName())
+            if (!block.getByName(dst_col.name).type->equals(*dst_col.type))
             {
                 LOG_ERROR(log, "Destination table " << destination_database << "." << destination_table
                     << " have different type of column " << dst_col.name << " ("
@@ -597,11 +602,56 @@ void StorageBuffer::alter(const AlterCommands & params, const String & database_
     /// So that no blocks of the old structure remain.
     optimize({} /*query*/, {} /*partition_id*/, false /*final*/, false /*deduplicate*/, context);
 
-    params.apply(*columns, materialized_columns, alias_columns, column_defaults);
+    params.apply(columns, materialized_columns, alias_columns, column_defaults);
 
     context.getDatabase(database_name)->alterTable(
         context, table_name,
-        *columns, materialized_columns, alias_columns, column_defaults, {});
+        columns, materialized_columns, alias_columns, column_defaults, {});
+}
+
+
+void registerStorageBuffer(StorageFactory & factory)
+{
+    /** Buffer(db, table, num_buckets, min_time, max_time, min_rows, max_rows, min_bytes, max_bytes)
+      *
+      * db, table - in which table to put data from buffer.
+      * num_buckets - level of parallelism.
+      * min_time, max_time, min_rows, max_rows, min_bytes, max_bytes - conditions for flushing the buffer.
+      */
+
+    factory.registerStorage("Buffer", [](const StorageFactory::Arguments & args)
+    {
+        ASTs & engine_args = args.engine_args;
+
+        if (engine_args.size() != 9)
+            throw Exception("Storage Buffer requires 9 parameters: "
+                " destination_database, destination_table, num_buckets, min_time, max_time, min_rows, max_rows, min_bytes, max_bytes.",
+                ErrorCodes::NUMBER_OF_ARGUMENTS_DOESNT_MATCH);
+
+        engine_args[0] = evaluateConstantExpressionOrIdentifierAsLiteral(engine_args[0], args.local_context);
+        engine_args[1] = evaluateConstantExpressionOrIdentifierAsLiteral(engine_args[1], args.local_context);
+
+        String destination_database = static_cast<const ASTLiteral &>(*engine_args[0]).value.safeGet<String>();
+        String destination_table = static_cast<const ASTLiteral &>(*engine_args[1]).value.safeGet<String>();
+
+        UInt64 num_buckets = applyVisitor(FieldVisitorConvertToNumber<UInt64>(), typeid_cast<ASTLiteral &>(*engine_args[2]).value);
+
+        Int64 min_time = applyVisitor(FieldVisitorConvertToNumber<Int64>(), typeid_cast<ASTLiteral &>(*engine_args[3]).value);
+        Int64 max_time = applyVisitor(FieldVisitorConvertToNumber<Int64>(), typeid_cast<ASTLiteral &>(*engine_args[4]).value);
+        UInt64 min_rows = applyVisitor(FieldVisitorConvertToNumber<UInt64>(), typeid_cast<ASTLiteral &>(*engine_args[5]).value);
+        UInt64 max_rows = applyVisitor(FieldVisitorConvertToNumber<UInt64>(), typeid_cast<ASTLiteral &>(*engine_args[6]).value);
+        UInt64 min_bytes = applyVisitor(FieldVisitorConvertToNumber<UInt64>(), typeid_cast<ASTLiteral &>(*engine_args[7]).value);
+        UInt64 max_bytes = applyVisitor(FieldVisitorConvertToNumber<UInt64>(), typeid_cast<ASTLiteral &>(*engine_args[8]).value);
+
+        return StorageBuffer::create(
+            args.table_name, args.columns,
+            args.materialized_columns, args.alias_columns, args.column_defaults,
+            args.context,
+            num_buckets,
+            StorageBuffer::Thresholds{min_time, min_rows, min_bytes},
+            StorageBuffer::Thresholds{max_time, max_rows, max_bytes},
+            destination_database, destination_table);
+    });
 }
 
 }

@@ -1,6 +1,7 @@
+#include <Common/config.h>
 #if USE_CAPNP
 
-#include <Core/Block.h>
+#include <Common/escapeForFileName.h>
 #include <IO/ReadBuffer.h>
 #include <DataStreams/CapnProtoRowInputStream.h>
 
@@ -14,13 +15,17 @@
 namespace DB
 {
 
+static String getSchemaPath(const String & schema_dir, const String & schema_file)
+{
+    return schema_dir + escapeForFileName(schema_file) + ".capnp";
+}
 
-CapnProtoRowInputStream::NestedField split(const Block & sample, size_t i)
+CapnProtoRowInputStream::NestedField split(const Block & header, size_t i)
 {
     CapnProtoRowInputStream::NestedField field = {{}, i};
 
     // Remove leading dot in field definition, e.g. ".msg" -> "msg"
-    String name(sample.safeGetByPosition(i).name);
+    String name(header.safeGetByPosition(i).name);
     if (name.size() > 0 && name[0] == '.')
         name.erase(0, 1);
 
@@ -31,46 +36,48 @@ CapnProtoRowInputStream::NestedField split(const Block & sample, size_t i)
 
 Field convertNodeToField(capnp::DynamicValue::Reader value)
 {
-    switch (value.getType()) {
-    case capnp::DynamicValue::UNKNOWN:
-        throw Exception("Unknown field type");
-    case capnp::DynamicValue::VOID:
-        return Field();
-    case capnp::DynamicValue::BOOL:
-      return UInt64(value.as<bool>() ? 1 : 0);
-    case capnp::DynamicValue::INT:
-      return Int64((value.as<int64_t>()));
-    case capnp::DynamicValue::UINT:
-        return UInt64(value.as<uint64_t>());
-    case capnp::DynamicValue::FLOAT:
-      return Float64(value.as<double>());
-    case capnp::DynamicValue::TEXT:
+    switch (value.getType())
     {
-        auto arr = value.as<capnp::Text>();
-        return String(arr.begin(), arr.size());
+        case capnp::DynamicValue::UNKNOWN:
+            throw Exception("Unknown field type");
+        case capnp::DynamicValue::VOID:
+            return Field();
+        case capnp::DynamicValue::BOOL:
+            return UInt64(value.as<bool>() ? 1 : 0);
+        case capnp::DynamicValue::INT:
+            return Int64((value.as<int64_t>()));
+        case capnp::DynamicValue::UINT:
+            return UInt64(value.as<uint64_t>());
+        case capnp::DynamicValue::FLOAT:
+            return Float64(value.as<double>());
+        case capnp::DynamicValue::TEXT:
+        {
+            auto arr = value.as<capnp::Text>();
+            return String(arr.begin(), arr.size());
+        }
+        case capnp::DynamicValue::DATA:
+        {
+            auto arr = value.as<capnp::Data>().asChars();
+            return String(arr.begin(), arr.size());
+        }
+        case capnp::DynamicValue::LIST:
+        {
+            auto listValue = value.as<capnp::DynamicList>();
+            Array res(listValue.size());
+            for (auto i : kj::indices(listValue))
+            res[i] = convertNodeToField(listValue[i]);
+            return res;
+        }
+        case capnp::DynamicValue::ENUM:
+            return UInt64(value.as<capnp::DynamicEnum>().getRaw());
+        case capnp::DynamicValue::STRUCT:
+            throw Exception("STRUCT type not supported, read individual fields instead");
+        case capnp::DynamicValue::CAPABILITY:
+            throw Exception("CAPABILITY type not supported");
+        case capnp::DynamicValue::ANY_POINTER:
+            throw Exception("ANY_POINTER type not supported");
     }
-    case capnp::DynamicValue::DATA:
-    {
-        auto arr = value.as<capnp::Data>().asChars();
-        return String(arr.begin(), arr.size());
-    }
-    case capnp::DynamicValue::LIST:
-    {
-        auto listValue = value.as<capnp::DynamicList>();
-        Array res(listValue.size());
-        for (auto i : kj::indices(listValue))
-          res[i] = convertNodeToField(listValue[i]);
-        return res;
-    }
-    case capnp::DynamicValue::ENUM:
-        return UInt64(value.as<capnp::DynamicEnum>().getRaw());
-    case capnp::DynamicValue::STRUCT:
-        throw Exception("STRUCT type not supported, read individual fields instead");
-    case capnp::DynamicValue::CAPABILITY:
-        throw Exception("CAPABILITY type not supported");
-    case capnp::DynamicValue::ANY_POINTER:
-        throw Exception("ANY_POINTER type not supported");
-	}
+    return Field();
 }
 
 capnp::StructSchema::Field getFieldOrThrow(capnp::StructSchema node, const std::string & field)
@@ -86,7 +93,7 @@ void CapnProtoRowInputStream::createActions(const NestedFieldList & sortedFields
     String last;
     size_t level = 0;
     capnp::StructSchema::Field parent;
-    
+
     for (const auto & field : sortedFields)
     {
         // Move to a different field in the same structure, keep parent
@@ -110,22 +117,23 @@ void CapnProtoRowInputStream::createActions(const NestedFieldList & sortedFields
     }
 }
 
-CapnProtoRowInputStream::CapnProtoRowInputStream(ReadBuffer & istr_, const Block & sample_, const String & schema_file, const String & root_object)
-    : istr(istr_), sample(sample_), parser(std::make_shared<SchemaParser>())
+CapnProtoRowInputStream::CapnProtoRowInputStream(ReadBuffer & istr_, const Block & header_, const String & schema_dir, const String & schema_file, const String & root_object)
+    : istr(istr_), header(header_), parser(std::make_shared<SchemaParser>())
 {
+
     // Parse the schema and fetch the root object
-    auto schema = parser->impl.parseDiskFile(schema_file, schema_file, {});
+    auto schema = parser->impl.parseDiskFile(schema_file, getSchemaPath(schema_dir, schema_file), {});
     root = schema.getNested(root_object).asStruct();
 
     /**
      * The schema typically consists of fields in various nested structures.
-     * Here we gather the list of fields and sort them in a way so that fields in the same structur are adjacent,
+     * Here we gather the list of fields and sort them in a way so that fields in the same structure are adjacent,
      * and the nesting level doesn't decrease to make traversal easier.
      */
     NestedFieldList list;
-    size_t columns = sample.columns();
-    for (size_t i = 0; i < columns; ++i)
-        list.push_back(split(sample, i));
+    size_t num_columns = header.columns();
+    for (size_t i = 0; i < num_columns; ++i)
+        list.push_back(split(header, i));
 
     // Reorder list to make sure we don't have to backtrack
     std::sort(list.begin(), list.end(), [](const NestedField & a, const NestedField & b)
@@ -139,7 +147,7 @@ CapnProtoRowInputStream::CapnProtoRowInputStream(ReadBuffer & istr_, const Block
 }
 
 
-bool CapnProtoRowInputStream::read(Block & block)
+bool CapnProtoRowInputStream::read(MutableColumns & columns)
 {
     if (istr.eof())
         return false;
@@ -147,7 +155,7 @@ bool CapnProtoRowInputStream::read(Block & block)
     // Read from underlying buffer directly
     auto buf = istr.buffer();
     auto base = reinterpret_cast<const capnp::word *>(istr.position());
-    
+
     // Check if there's enough bytes in the buffer to read the full message
     kj::Array<capnp::word> heap_array;
     auto array = kj::arrayPtr(base, buf.size() - istr.offset());
@@ -166,19 +174,21 @@ bool CapnProtoRowInputStream::read(Block & block)
 
     for (auto action : actions)
     {
-        switch (action.type) {
-        case Action::READ: {
-            auto & col = block.getByPosition(action.column);
-            Field value = convertNodeToField(stack.back().get(action.field));
-            col.column->insert(value);
-            break;
-        }
-        case Action::POP:
-            stack.pop_back();
-            break;
-        case Action::PUSH:
-            stack.push_back(stack.back().get(action.field).as<capnp::DynamicStruct>());
-            break;
+        switch (action.type)
+        {
+            case Action::READ:
+            {
+                auto & col = columns[action.column];
+                Field value = convertNodeToField(stack.back().get(action.field));
+                col->insert(value);
+                break;
+            }
+            case Action::POP:
+                stack.pop_back();
+                break;
+            case Action::PUSH:
+                stack.push_back(stack.back().get(action.field).as<capnp::DynamicStruct>());
+                break;
         }
     }
 
@@ -194,4 +204,4 @@ bool CapnProtoRowInputStream::read(Block & block)
 
 }
 
-#endif
+#endif // USE_CAPNP

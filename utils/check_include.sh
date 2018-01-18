@@ -10,7 +10,7 @@ inc="-I. \
 -I./build/contrib/libre2 \
 -I./contrib/libfarmhash \
 -I./contrib/libmetrohash/src \
--I./contrib/libdouble-conversion \
+-I./contrib/double-conversion \
 -I./contrib/libcityhash/include \
 -I./contrib/zookeeper/src/c/include \
 -I./contrib/zookeeper/src/c/generated \
@@ -43,5 +43,5 @@ if [ -z $1 ]; then
 else
     echo -n "$1    "
     echo -n `grep "#include" $1| wc -l` "    "
-    echo -e "#include <$1> \n int main() {return 0;}" | time --format "%e %M" g++-7 -c -std=gnu++1z $inc -x c++ -
+    echo -e "#include <$1> \n int main() {return 0;}" | time --format "%e %M" g++-7 -c -std=c++1z $inc -x c++ -
 fi

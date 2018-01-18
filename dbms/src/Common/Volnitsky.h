@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Common/StringSearcher.h>
-#include <Common/StringUtils.h>
+#include <Common/StringUtils/StringUtils.h>
 #include <Core/Types.h>
 #include <Poco/UTF8Encoding.h>
 #include <Poco/Unicode.h>
@@ -199,7 +199,7 @@ template <bool ASCII> struct VolnitskyImpl<true, ASCII> : VolnitskyBase<Volnitsk
     {
     }
 
-    void putNGram(const UInt8 * const pos, const int offset, const UInt8 * const begin)
+    void putNGram(const UInt8 * const pos, const int offset, const UInt8 * const /*begin*/)
     {
         this->putNGramBase(this->toNGram(pos), offset);
     }
@@ -226,7 +226,7 @@ template <> struct VolnitskyImpl<false, true> : VolnitskyBase<VolnitskyImpl<fals
     {
     }
 
-    void putNGram(const UInt8 * const pos, const int offset, const UInt8 * const begin)
+    void putNGram(const UInt8 * const pos, const int offset, const UInt8 * const /*begin*/)
     {
         putNGramASCIICaseInsensitive(pos, offset);
     }
