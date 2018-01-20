@@ -1,15 +1,73 @@
-Description: Fix headers copy for dev package
+Description: Use system libraries when available
+ Default ClickHouse provides all its libraries as contrib
+ and embed them into final binary.
+ .
+ When available, this patch aims to use system libraries instead of embedded ones.
+ Libraries' source code tree is stripped from upstream release using repack.
+ .
+ This patch also fix headers copy for dev package.
  Default clickhouse installation provides headers files for many embbeded libraries.
  When using system ones, there's no need to provides theses headers.
  Instead, we have to make package depends on libraries dev package
 Author: Jean Baptiste Favre <debian@jbfavre.org>
 Origin: other
-Last-Update: 2017-03-20
+Last-Update: 2018-01-20
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/copy_headers.sh
-+++ b/copy_headers.sh
-@@ -37,19 +37,10 @@ for src_file in $(echo | $CLANG -M -xc++
+Index: clickhouse/dbms/src/Interpreters/CMakeLists.txt
+===================================================================
+--- clickhouse.orig/dbms/src/Interpreters/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/dbms/src/Interpreters/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+@@ -5,7 +5,7 @@
+     set (PATH_SHARE "/usr/share" CACHE STRING "")
+ endif ()
+ 
+-set (INTERNAL_COMPILER_EXECUTABLE "clickhouse-clang" CACHE STRING "")
++set (INTERNAL_COMPILER_EXECUTABLE "/usr/bin/clang" CACHE STRING "")
+ set (INTERNAL_LINKER_EXECUTABLE "clickhouse-lld" CACHE STRING "")
+ set (INTERNAL_COMPILER_NO_WARNING OFF CACHE INTERNAL "")
+ set (INTERNAL_COMPILER_HEADERS "${PATH_SHARE}/clickhouse/headers" CACHE STRING "")
+Index: clickhouse/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
+===================================================================
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference	2018-01-20 22:10:50.308768240 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,2 +0,0 @@
+-1	Hello
+-2	Hello
+Index: clickhouse/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
+===================================================================
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql	2018-01-20 22:10:50.308768240 +0100
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,2 +0,0 @@
+-SET compile = 1, min_count_to_compile = 0, max_threads = 1;
+-SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
+Index: clickhouse/cmake/Modules/Finddouble-conversion.cmake
+===================================================================
+--- clickhouse.orig/cmake/Modules/Finddouble-conversion.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/cmake/Modules/Finddouble-conversion.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -18,7 +18,7 @@
+ #  DOUBLE_CONVERSION_INCLUDE_DIR       The location of double-conversion headers
+ 
+ find_path(DOUBLE_CONVERSION_ROOT_DIR
+-    NAMES include/double-conversion/double-conversion.h
++    NAMES double-conversion/double-conversion.h
+ )
+ 
+ find_library(DOUBLE_CONVERSION_LIBRARIES
+@@ -28,7 +28,7 @@
+ 
+ find_path(DOUBLE_CONVERSION_INCLUDE_DIR
+     NAMES double-conversion/double-conversion.h
+-    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/include ${DOUBLE_CONVERSION_INCLUDE_PATHS}
++    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/double-conversion
+ )
+ 
+ include(FindPackageHandleStandardArgs)
+Index: clickhouse/copy_headers.sh
+===================================================================
+--- clickhouse.orig/copy_headers.sh	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/copy_headers.sh	2018-01-20 22:10:50.300769300 +0100
+@@ -42,27 +42,10 @@
      $(echo $START_HEADERS | sed -r -e 's/[^ ]+/-include \0/g') \
      - |
      tr -d '\\' |
@@ -26,48 +84,316 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 -# Копируем больше заголовочных файлов с интринсиками, так как на серверах, куда будут устанавливаться
 -#  заголовочные файлы, будет использоваться опция -march=native.
 -
--for i in $(ls -1 $($CLANG -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep '/lib/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
+-for src_file in $(ls -1 $($CLANG -v -xc++ - <<<'' 2>&1 | grep '^ /' | grep 'include' | grep -E '/lib/clang/|/include/clang/')/*.h | grep -vE 'arm|altivec|Intrin');
 -do
--    cp "$i" "$DST/$i";
+-    mkdir -p "$DST/$(echo $src_file | sed -r -e 's/\/[^/]*$/\//')";
+-    cp "$src_file" "$DST/$src_file";
 -done
---- a/dbms/src/Interpreters/CMakeLists.txt
-+++ b/dbms/src/Interpreters/CMakeLists.txt
-@@ -6,7 +6,7 @@ else ()
+-
+-# Even more platform-specific headers
+-for src_file in $(ls -1 $SOURCE_PATH/contrib/libboost/boost_1_65_0/boost/smart_ptr/detail/*);
+-do
+-    mkdir -p "$DST/$(echo $src_file | sed -r -e 's/\/[^/]*$/\//')";
+-    cp "$src_file" "$DST/$src_file";
+-done
+Index: clickhouse/cmake/find_gtest.cmake
+===================================================================
+--- clickhouse.orig/cmake/find_gtest.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/cmake/find_gtest.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -1,17 +1,26 @@
+ option (USE_INTERNAL_GTEST_LIBRARY "Set to FALSE to use system Google Test instead of bundled" ${NOT_UNBUNDLED})
+ 
+-if (USE_INTERNAL_GTEST_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/googletest/googletest/CMakeLists.txt")
+-   message (WARNING "submodule contrib/googletest is missing. to fix try run: \n git submodule update --init --recursive")
+-   set (USE_INTERNAL_GTEST_LIBRARY 0)
++if (NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/googletest/googletest/CMakeLists.txt")
++   if (USE_INTERNAL_GTEST_LIBRARY)
++       message (WARNING "submodule contrib/googletest is missing. to fix try run: \n git submodule update --init --recursive")
++       set (USE_INTERNAL_GTEST_LIBRARY 0)
++   endif ()
++   set (MISSING_INTERNAL_GTEST_LIBRARY 1)
  endif ()
  
- if (INTERNAL_COMPILER_SAME)
--    set (INTERNAL_COMPILER_EXECUTABLE "${CMAKE_CXX_COMPILER}" CACHE STRING "")
-+    set (INTERNAL_COMPILER_EXECUTABLE "/usr/bin/clang" CACHE STRING "")
- else ()
-     set (INTERNAL_COMPILER_EXECUTABLE "${PATH_SHARE}/clickhouse/bin/clang" CACHE STRING "")
+ if (NOT USE_INTERNAL_GTEST_LIBRARY)
+-    find_library (GTEST_LIBRARY gtest_main)
+     find_path (GTEST_INCLUDE_DIR NAMES /gtest/gtest.h PATHS ${GTEST_INCLUDE_PATHS})
++    find_path (GTEST_ROOT NAMES src/gtest-all.cc PATHS /usr/src/googletest/googletest /usr/src/gtest)
  endif ()
---- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
-+++ /dev/null
-@@ -1,2 +0,0 @@
--1	Hello
--2	Hello
---- a/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
-+++ /dev/null
-@@ -1,2 +0,0 @@
--SET compile = 1, min_count_to_compile = 0, max_threads = 1;
--SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
---- a/cmake/Modules/Finddouble-conversion.cmake
-+++ b/cmake/Modules/Finddouble-conversion.cmake
-@@ -18,7 +18,7 @@
- #  DOUBLE_CONVERSION_INCLUDE_DIR       The location of double-conversion headers
  
- find_path(DOUBLE_CONVERSION_ROOT_DIR
--    NAMES include/double-conversion/double-conversion.h
-+    NAMES double-conversion/double-conversion.h
+-if (GTEST_LIBRARY AND GTEST_INCLUDE_DIR)
+-else ()
++if (GTEST_INCLUDE_DIR AND GTEST_ROOT)
++    # googletest package have no lib
++    add_library(gtest ${GTEST_ROOT}/src/gtest-all.cc)
++    add_library(gtest_main ${GTEST_ROOT}/src/gtest_main.cc)
++    target_include_directories(gtest PRIVATE ${GTEST_ROOT})
++    target_link_libraries(gtest_main gtest)
++    set (GTEST_LIBRARY gtest_main)
++elseif (NOT MISSING_INTERNAL_GTEST_LIBRARY)
+     set (USE_INTERNAL_GTEST_LIBRARY 1)
+     set (GTEST_LIBRARY gtest_main)
+ endif ()
+Index: clickhouse/libs/libcommon/cmake/find_cctz.cmake
+===================================================================
+--- clickhouse.orig/libs/libcommon/cmake/find_cctz.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/libs/libcommon/cmake/find_cctz.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -2,18 +2,19 @@
+ 
+ if (USE_INTERNAL_CCTZ_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/cctz/include/cctz/time_zone.h")
+    message (WARNING "submodule contrib/cctz is missing. to fix try run: \n git submodule update --init --recursive")
++   set (MISSING_INTERNAL_CCTZ_LIBRARY 1)
+    set (USE_INTERNAL_CCTZ_LIBRARY 0)
+ endif ()
+ 
+ if (NOT USE_INTERNAL_CCTZ_LIBRARY)
+     find_library (CCTZ_LIBRARY cctz)
+-    find_path (CCTZ_INCLUDE_DIR NAMES civil_time.h PATHS ${CCTZ_INCLUDE_PATHS})
++    find_path (CCTZ_INCLUDE_DIR NAMES cctz/civil_time.h PATHS ${CCTZ_INCLUDE_PATHS})
+ endif ()
+ 
+ if (CCTZ_LIBRARY AND CCTZ_INCLUDE_DIR)
+-else ()
++elseif (NOT MISSING_INTERNAL_CCTZ_LIBRARY)
+     set (USE_INTERNAL_CCTZ_LIBRARY 1)
+-    set (CCTZ_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/cctz/include/cctz")
++    set (CCTZ_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/cctz/include")
+     set (CCTZ_LIBRARY cctz)
+ endif ()
+ 
+Index: clickhouse/cmake/find_odbc.cmake
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ clickhouse/cmake/find_odbc.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -0,0 +1,66 @@
++# This file copied from contrib/poco/cmake/FindODBC.cmake to allow build without submodules
++
++#
++# Find the ODBC driver manager includes and library.
++#
++# ODBC is an open standard for connecting to different databases in a
++# semi-vendor-independent fashion.  First you install the ODBC driver
++# manager.  Then you need a driver for each separate database you want
++# to connect to (unless a generic one works).  VTK includes neither
++# the driver manager nor the vendor-specific drivers: you have to find
++# those yourself.
++#
++# This module defines
++# ODBC_INCLUDE_DIRECTORIES, where to find sql.h
++# ODBC_LIBRARIES, the libraries to link against to use ODBC
++# ODBC_FOUND.  If false, you cannot build anything that requires MySQL.
++
++find_path(ODBC_INCLUDE_DIRECTORIES
++       NAMES sql.h
++       HINTS
++       /usr/include
++       /usr/include/odbc
++       /usr/include/iodbc
++       /usr/local/include
++       /usr/local/include/odbc
++       /usr/local/include/iodbc
++       /usr/local/odbc/include
++       /usr/local/iodbc/include
++       "C:/Program Files/ODBC/include"
++       "C:/Program Files/Microsoft SDKs/Windows/v7.0/include"
++       "C:/Program Files/Microsoft SDKs/Windows/v6.0a/include"
++       "C:/ODBC/include"
++       DOC "Specify the directory containing sql.h."
++)
++
++find_library(ODBC_LIBRARIES
++       NAMES iodbc odbc iodbcinst odbcinst odbc32
++       HINTS
++       /usr/lib
++       /usr/lib/odbc
++       /usr/lib/iodbc
++       /usr/local/lib
++       /usr/local/lib/odbc
++       /usr/local/lib/iodbc
++       /usr/local/odbc/lib
++       /usr/local/iodbc/lib
++       "C:/Program Files/ODBC/lib"
++       "C:/ODBC/lib/debug"
++       "C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib"
++       DOC "Specify the ODBC driver manager library here."
++)
++
++# MinGW find usually fails
++if(MINGW)
++       set(ODBC_INCLUDE_DIRECTORIES ".")
++       set(ODBC_LIBRARIES odbc32)
++endif()
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(ODBC
++       DEFAULT_MSG
++       ODBC_INCLUDE_DIRECTORIES
++       ODBC_LIBRARIES
++       )
++
++mark_as_advanced(ODBC_FOUND ODBC_LIBRARIES ODBC_INCLUDE_DIRECTORIES)
+Index: clickhouse/cmake/find_rdkafka.cmake
+===================================================================
+--- clickhouse.orig/cmake/find_rdkafka.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/cmake/find_rdkafka.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -13,11 +13,12 @@
+ if (NOT USE_INTERNAL_RDKAFKA_LIBRARY)
+     find_library (RDKAFKA_LIB rdkafka)
+     find_path (RDKAFKA_INCLUDE_DIR NAMES librdkafka/rdkafka.h PATHS ${RDKAFKA_INCLUDE_PATHS})
++    find_library (SASL2_LIBRARY sasl2)
+ endif ()
+ 
+ if (RDKAFKA_LIB AND RDKAFKA_INCLUDE_DIR)
+     set (USE_RDKAFKA 1)
+-    set (RDKAFKA_LIBRARY ${RDKAFKA_LIB} ${OPENSSL_LIBRARIES})
++    set (RDKAFKA_LIBRARY ${RDKAFKA_LIB} ${OPENSSL_LIBRARIES} ${SASL2_LIBRARY})
+ elseif (NOT MISSING_INTERNAL_RDKAFKA_LIBRARY)
+     set (USE_INTERNAL_RDKAFKA_LIBRARY 1)
+     set (RDKAFKA_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/librdkafka/src")
+Index: clickhouse/dbms/CMakeLists.txt
+===================================================================
+--- clickhouse.orig/dbms/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/dbms/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+@@ -142,6 +142,7 @@
+     ${ZLIB_LIBRARIES}
+     ${EXECINFO_LIBRARY}
+     ${Boost_SYSTEM_LIBRARY}
++    ${CMAKE_DL_LIBS}
  )
  
- find_library(DOUBLE_CONVERSION_LIBRARIES
-@@ -28,7 +28,7 @@ find_library(DOUBLE_CONVERSION_LIBRARIES
+ target_link_libraries (dbms
+@@ -203,7 +204,6 @@
+ endif ()
  
- find_path(DOUBLE_CONVERSION_INCLUDE_DIR
-     NAMES double-conversion/double-conversion.h
--    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/include ${DOUBLE_CONVERSION_INCLUDE_PATHS}
-+    PATHS ${DOUBLE_CONVERSION_ROOT_DIR}/double-conversion
+ target_link_libraries (dbms
+-    ${CMAKE_DL_LIBS}
+     Threads::Threads
  )
  
- include(FindPackageHandleStandardArgs)
+@@ -228,7 +228,7 @@
+ add_subdirectory (tests)
+ 
+ if (ENABLE_TESTS)
+-    include (${PROJECT_SOURCE_DIR}/cmake/find_gtest.cmake)
++    include (${ClickHouse_SOURCE_DIR}/cmake/find_gtest.cmake)
+ 
+     if (USE_INTERNAL_GTEST_LIBRARY)
+         # Google Test from sources
+Index: clickhouse/CMakeLists.txt
+===================================================================
+--- clickhouse.orig/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+@@ -266,7 +266,9 @@
+ include (cmake/find_zlib.cmake)
+ include (cmake/find_zstd.cmake)
+ include (cmake/find_ltdl.cmake) # for odbc
+-include (contrib/poco/cmake/FindODBC.cmake) # for poco
++if (EXISTS "contrib/poco/cmake/FindODBC.cmake")
++    include (contrib/poco/cmake/FindODBC.cmake) # for poco
++endif ()
+ include (cmake/find_poco.cmake)
+ include (cmake/find_lz4.cmake)
+ include (cmake/find_sparsehash.cmake)
+Index: clickhouse/cmake/find_capnp.cmake
+===================================================================
+--- clickhouse.orig/cmake/find_capnp.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/cmake/find_capnp.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -16,8 +16,10 @@
+ 
+     option (USE_INTERNAL_CAPNP_LIBRARY "Set to FALSE to use system capnproto library instead of bundled" ${USE_INTERNAL_CAPNP_LIBRARY_DEFAULT})
+ 
+-    if (USE_INTERNAL_CAPNP_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/capnproto/c++/CMakeLists.txt")
+-       message (WARNING "submodule contrib/capnproto is missing. to fix try run: \n git submodule update --init --recursive")
++    if (NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/capnproto/c++/CMakeLists.txt")
++       if (USE_INTERNAL_CAPNP_LIBRARY)
++           message (WARNING "submodule contrib/capnproto is missing. to fix try run: \n git submodule update --init --recursive")
++       endif ()
+        set (USE_INTERNAL_CAPNP_LIBRARY 0)
+        set (MISSING_INTERNAL_CAPNP_LIBRARY 1)
+     endif ()
+Index: clickhouse/cmake/find_poco.cmake
+===================================================================
+--- clickhouse.orig/cmake/find_poco.cmake	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/cmake/find_poco.cmake	2018-01-20 22:10:50.300769300 +0100
+@@ -1,8 +1,11 @@
+ option (USE_INTERNAL_POCO_LIBRARY "Set to FALSE to use system poco library instead of bundled" ${NOT_UNBUNDLED})
+ 
+-if (USE_INTERNAL_POCO_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/poco/CMakeLists.txt")
+-   message (WARNING "submodule contrib/poco is missing. to fix try run: \n git submodule update --init --recursive")
++if (NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/poco/CMakeLists.txt")
++   if (USE_INTERNAL_POCO_LIBRARY)
++      message (WARNING "submodule contrib/poco is missing. to fix try run: \n git submodule update --init --recursive")
++   endif ()
+    set (USE_INTERNAL_POCO_LIBRARY 0)
++   set (MISSING_INTERNAL_POCO_LIBRARY 1)
+ endif ()
+ 
+ if (NOT USE_INTERNAL_POCO_LIBRARY)
+@@ -10,7 +13,7 @@
+ endif ()
+ 
+ if (Poco_INCLUDE_DIRS AND Poco_Foundation_LIBRARY)
+-else ()
++elseif (NOT MISSING_INTERNAL_POCO_LIBRARY)
+ 
+     set (USE_INTERNAL_POCO_LIBRARY 1)
+ 
+Index: clickhouse/libs/libpocoext/CMakeLists.txt
+===================================================================
+--- clickhouse.orig/libs/libpocoext/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/libs/libpocoext/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+@@ -7,4 +7,8 @@
+ 
+ target_include_directories (pocoext PUBLIC include PRIVATE ${COMMON_INCLUDE_DIR})
+ 
++if (NOT USE_INTERNAL_POCO_LIBRARY)
++    target_include_directories (pocoext BEFORE PUBLIC ${Poco_INCLUDE_DIRS})
++endif ()
++
+ target_link_libraries(pocoext ${Poco_Util_LIBRARY} ${Poco_Net_LIBRARY} ${Poco_XML_LIBRARY} ${Poco_Foundation_LIBRARY})
+Index: clickhouse/libs/libcommon/src/DateLUTImpl.cpp
+===================================================================
+--- clickhouse.orig/libs/libcommon/src/DateLUTImpl.cpp	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/libs/libcommon/src/DateLUTImpl.cpp	2018-01-20 22:10:50.300769300 +0100
+@@ -1,5 +1,5 @@
+-#include <civil_time.h>
+-#include <time_zone.h>
++#include <cctz/civil_time.h>
++#include <cctz/time_zone.h>
+ 
+ #include <common/DateLUTImpl.h>
+ #include <Poco/Exception.h>
+Index: clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt
+===================================================================
+--- clickhouse.orig/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+@@ -26,7 +26,7 @@
+ 
+ add_executable (hash_map_string_3 hash_map_string_3.cpp)
+ target_link_libraries (hash_map_string_3 dbms)
+-target_include_directories (hash_map_string_3 BEFORE PRIVATE ${ClickHouse_SOURCE_DIR}/contrib/libfarmhash)
++target_include_directories (hash_map_string_3 BEFORE PRIVATE ${FARMHASH_INCLUDE_DIR})
+ target_include_directories (hash_map_string_3 BEFORE PRIVATE ${ClickHouse_SOURCE_DIR}/contrib/libmetrohash/src)
+ 
+ add_executable (hash_map_string_small hash_map_string_small.cpp)
+Index: clickhouse/dbms/src/Interpreters/tests/hash_map_string_3.cpp
+===================================================================
+--- clickhouse.orig/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-20 22:10:50.308768240 +0100
++++ clickhouse/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-20 22:10:50.300769300 +0100
+@@ -10,6 +10,8 @@
+ #define DBMS_HASH_MAP_COUNT_COLLISIONS
+ #define DBMS_HASH_MAP_DEBUG_RESIZES
+ 
++#define NAMESPACE_FOR_HASH_FUNCTIONS farmhash
++
+ #include <Core/Types.h>
+ #include <IO/ReadBufferFromFile.h>
+ #include <IO/ReadHelpers.h>
+@@ -316,7 +318,7 @@
+ {
+     size_t operator() (StringRef x) const
+     {
+-        return farmhash::Hash64(x.data, x.size);
++        return NAMESPACE_FOR_HASH_FUNCTIONS::Hash64(x.data, x.size);
+     }
+ };
+ 
