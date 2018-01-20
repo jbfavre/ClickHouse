@@ -3,13 +3,18 @@ Upstream-Name: Yandex LLC
 Upstream-Contact: Alexey Milovidov <clickhouse-feedback@yandex-team.com>
 Source: https://github.com/yandex/clickhouse
 Files-Excluded:
+    contrib/capnproto
+    contrib/googletest
+    contrib/librdkafka
     contrib/libdouble-conversion
+    contrib/libfarmhash
     contrib/libboost
     contrib/libpoco
     contrib/liblz4
     contrib/libre2
     contrib/libsparsehash
     contrib/libtcmalloc
+    contrib/libunwind
     contrib/libzookeeper
     contrib/libzstd
 Comment:
