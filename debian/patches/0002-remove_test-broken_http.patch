@@ -11,8 +11,8 @@ Last-Update: 2017-09-28
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: clickhouse/dbms/tests/queries/0_stateless/00429_long_http_bufferization.sh
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/0_stateless/00429_long_http_bufferization.sh	2018-01-20 22:10:51.268641135 +0100
-+++ clickhouse/dbms/tests/queries/0_stateless/00429_long_http_bufferization.sh	2018-01-20 22:10:51.264641662 +0100
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00429_long_http_bufferization.sh	2018-01-21 16:15:24.217615789 +0100
++++ clickhouse/dbms/tests/queries/0_stateless/00429_long_http_bufferization.sh	2018-01-21 16:15:24.213615783 +0100
 @@ -52,7 +52,6 @@
  
      check_only_exception         "max_result_bytes=4000000&buffer_size=2000000&wait_end_of_query=1" 5000000
@@ -23,8 +23,8 @@ Index: clickhouse/dbms/tests/queries/0_stateless/00429_long_http_bufferization.s
  check_exception_handling
 Index: clickhouse/dbms/tests/queries/0_stateless/00463_long_sessions_in_http_interface.sh
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/0_stateless/00463_long_sessions_in_http_interface.sh	2018-01-20 22:10:51.268641135 +0100
-+++ clickhouse/dbms/tests/queries/0_stateless/00463_long_sessions_in_http_interface.sh	2018-01-20 22:10:51.268641135 +0100
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00463_long_sessions_in_http_interface.sh	2018-01-21 16:15:24.217615789 +0100
++++ clickhouse/dbms/tests/queries/0_stateless/00463_long_sessions_in_http_interface.sh	2018-01-21 16:15:24.213615783 +0100
 @@ -78,7 +78,7 @@
  
  EOF

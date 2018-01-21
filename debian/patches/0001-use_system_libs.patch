@@ -16,8 +16,8 @@ Last-Update: 2018-01-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: clickhouse/dbms/src/Interpreters/CMakeLists.txt
 ===================================================================
---- clickhouse.orig/dbms/src/Interpreters/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/dbms/src/Interpreters/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/dbms/src/Interpreters/CMakeLists.txt	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/dbms/src/Interpreters/CMakeLists.txt	2018-01-21 16:15:23.349614445 +0100
 @@ -5,7 +5,7 @@
      set (PATH_SHARE "/usr/share" CACHE STRING "")
  endif ()
@@ -29,22 +29,22 @@ Index: clickhouse/dbms/src/Interpreters/CMakeLists.txt
  set (INTERNAL_COMPILER_HEADERS "${PATH_SHARE}/clickhouse/headers" CACHE STRING "")
 Index: clickhouse/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference	2018-01-20 22:10:50.308768240 +0100
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.reference	2018-01-21 16:15:23.365614470 +0100
 +++ /dev/null	1970-01-01 00:00:00.000000000 +0000
 @@ -1,2 +0,0 @@
 -1	Hello
 -2	Hello
 Index: clickhouse/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql	2018-01-20 22:10:50.308768240 +0100
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00281_gcc_clang_sizeof_packed.sql	2018-01-21 16:15:23.365614470 +0100
 +++ /dev/null	1970-01-01 00:00:00.000000000 +0000
 @@ -1,2 +0,0 @@
 -SET compile = 1, min_count_to_compile = 0, max_threads = 1;
 -SELECT arrayJoin([1, 2, 1]) AS UserID, argMax('Hello', today()) AS res GROUP BY UserID;
 Index: clickhouse/cmake/Modules/Finddouble-conversion.cmake
 ===================================================================
---- clickhouse.orig/cmake/Modules/Finddouble-conversion.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/cmake/Modules/Finddouble-conversion.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/cmake/Modules/Finddouble-conversion.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/cmake/Modules/Finddouble-conversion.cmake	2018-01-21 16:15:23.349614445 +0100
 @@ -18,7 +18,7 @@
  #  DOUBLE_CONVERSION_INCLUDE_DIR       The location of double-conversion headers
  
@@ -65,8 +65,8 @@ Index: clickhouse/cmake/Modules/Finddouble-conversion.cmake
  include(FindPackageHandleStandardArgs)
 Index: clickhouse/copy_headers.sh
 ===================================================================
---- clickhouse.orig/copy_headers.sh	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/copy_headers.sh	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/copy_headers.sh	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/copy_headers.sh	2018-01-21 16:15:23.349614445 +0100
 @@ -42,27 +42,10 @@
      $(echo $START_HEADERS | sed -r -e 's/[^ ]+/-include \0/g') \
      - |
@@ -98,8 +98,8 @@ Index: clickhouse/copy_headers.sh
 -done
 Index: clickhouse/cmake/find_gtest.cmake
 ===================================================================
---- clickhouse.orig/cmake/find_gtest.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/cmake/find_gtest.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/cmake/find_gtest.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/cmake/find_gtest.cmake	2018-01-21 16:15:23.349614445 +0100
 @@ -1,17 +1,26 @@
  option (USE_INTERNAL_GTEST_LIBRARY "Set to FALSE to use system Google Test instead of bundled" ${NOT_UNBUNDLED})
  
@@ -135,8 +135,8 @@ Index: clickhouse/cmake/find_gtest.cmake
  endif ()
 Index: clickhouse/libs/libcommon/cmake/find_cctz.cmake
 ===================================================================
---- clickhouse.orig/libs/libcommon/cmake/find_cctz.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/libs/libcommon/cmake/find_cctz.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/libs/libcommon/cmake/find_cctz.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/libs/libcommon/cmake/find_cctz.cmake	2018-01-21 16:15:23.349614445 +0100
 @@ -2,18 +2,19 @@
  
  if (USE_INTERNAL_CCTZ_LIBRARY AND NOT EXISTS "${ClickHouse_SOURCE_DIR}/contrib/cctz/include/cctz/time_zone.h")
@@ -163,7 +163,7 @@ Index: clickhouse/libs/libcommon/cmake/find_cctz.cmake
 Index: clickhouse/cmake/find_odbc.cmake
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ clickhouse/cmake/find_odbc.cmake	2018-01-20 22:10:50.300769300 +0100
++++ clickhouse/cmake/find_odbc.cmake	2018-01-21 16:15:23.353614451 +0100
 @@ -0,0 +1,66 @@
 +# This file copied from contrib/poco/cmake/FindODBC.cmake to allow build without submodules
 +
@@ -233,8 +233,8 @@ Index: clickhouse/cmake/find_odbc.cmake
 +mark_as_advanced(ODBC_FOUND ODBC_LIBRARIES ODBC_INCLUDE_DIRECTORIES)
 Index: clickhouse/cmake/find_rdkafka.cmake
 ===================================================================
---- clickhouse.orig/cmake/find_rdkafka.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/cmake/find_rdkafka.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/cmake/find_rdkafka.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/cmake/find_rdkafka.cmake	2018-01-21 16:15:23.353614451 +0100
 @@ -13,11 +13,12 @@
  if (NOT USE_INTERNAL_RDKAFKA_LIBRARY)
      find_library (RDKAFKA_LIB rdkafka)
@@ -251,8 +251,8 @@ Index: clickhouse/cmake/find_rdkafka.cmake
      set (RDKAFKA_INCLUDE_DIR "${ClickHouse_SOURCE_DIR}/contrib/librdkafka/src")
 Index: clickhouse/dbms/CMakeLists.txt
 ===================================================================
---- clickhouse.orig/dbms/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/dbms/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/dbms/CMakeLists.txt	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/dbms/CMakeLists.txt	2018-01-21 16:15:23.353614451 +0100
 @@ -142,6 +142,7 @@
      ${ZLIB_LIBRARIES}
      ${EXECINFO_LIBRARY}
@@ -280,8 +280,8 @@ Index: clickhouse/dbms/CMakeLists.txt
          # Google Test from sources
 Index: clickhouse/CMakeLists.txt
 ===================================================================
---- clickhouse.orig/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/CMakeLists.txt	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/CMakeLists.txt	2018-01-21 16:15:23.353614451 +0100
 @@ -266,7 +266,9 @@
  include (cmake/find_zlib.cmake)
  include (cmake/find_zstd.cmake)
@@ -295,8 +295,8 @@ Index: clickhouse/CMakeLists.txt
  include (cmake/find_sparsehash.cmake)
 Index: clickhouse/cmake/find_capnp.cmake
 ===================================================================
---- clickhouse.orig/cmake/find_capnp.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/cmake/find_capnp.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/cmake/find_capnp.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/cmake/find_capnp.cmake	2018-01-21 16:15:23.353614451 +0100
 @@ -16,8 +16,10 @@
  
      option (USE_INTERNAL_CAPNP_LIBRARY "Set to FALSE to use system capnproto library instead of bundled" ${USE_INTERNAL_CAPNP_LIBRARY_DEFAULT})
@@ -312,8 +312,8 @@ Index: clickhouse/cmake/find_capnp.cmake
      endif ()
 Index: clickhouse/cmake/find_poco.cmake
 ===================================================================
---- clickhouse.orig/cmake/find_poco.cmake	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/cmake/find_poco.cmake	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/cmake/find_poco.cmake	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/cmake/find_poco.cmake	2018-01-21 16:15:23.353614451 +0100
 @@ -1,8 +1,11 @@
  option (USE_INTERNAL_POCO_LIBRARY "Set to FALSE to use system poco library instead of bundled" ${NOT_UNBUNDLED})
  
@@ -339,8 +339,8 @@ Index: clickhouse/cmake/find_poco.cmake
  
 Index: clickhouse/libs/libpocoext/CMakeLists.txt
 ===================================================================
---- clickhouse.orig/libs/libpocoext/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/libs/libpocoext/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/libs/libpocoext/CMakeLists.txt	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/libs/libpocoext/CMakeLists.txt	2018-01-21 16:15:23.353614451 +0100
 @@ -7,4 +7,8 @@
  
  target_include_directories (pocoext PUBLIC include PRIVATE ${COMMON_INCLUDE_DIR})
@@ -352,8 +352,8 @@ Index: clickhouse/libs/libpocoext/CMakeLists.txt
  target_link_libraries(pocoext ${Poco_Util_LIBRARY} ${Poco_Net_LIBRARY} ${Poco_XML_LIBRARY} ${Poco_Foundation_LIBRARY})
 Index: clickhouse/libs/libcommon/src/DateLUTImpl.cpp
 ===================================================================
---- clickhouse.orig/libs/libcommon/src/DateLUTImpl.cpp	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/libs/libcommon/src/DateLUTImpl.cpp	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/libs/libcommon/src/DateLUTImpl.cpp	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/libs/libcommon/src/DateLUTImpl.cpp	2018-01-21 16:15:23.353614451 +0100
 @@ -1,5 +1,5 @@
 -#include <civil_time.h>
 -#include <time_zone.h>
@@ -364,8 +364,8 @@ Index: clickhouse/libs/libcommon/src/DateLUTImpl.cpp
  #include <Poco/Exception.h>
 Index: clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt
 ===================================================================
---- clickhouse.orig/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-20 22:10:50.300769300 +0100
+--- clickhouse.orig/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt	2018-01-21 16:15:23.357614458 +0100
 @@ -26,7 +26,7 @@
  
  add_executable (hash_map_string_3 hash_map_string_3.cpp)
@@ -377,18 +377,20 @@ Index: clickhouse/dbms/src/Interpreters/tests/CMakeLists.txt
  add_executable (hash_map_string_small hash_map_string_small.cpp)
 Index: clickhouse/dbms/src/Interpreters/tests/hash_map_string_3.cpp
 ===================================================================
---- clickhouse.orig/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-20 22:10:50.308768240 +0100
-+++ clickhouse/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-20 22:10:50.300769300 +0100
-@@ -10,6 +10,8 @@
- #define DBMS_HASH_MAP_COUNT_COLLISIONS
- #define DBMS_HASH_MAP_DEBUG_RESIZES
+--- clickhouse.orig/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-21 16:15:23.365614470 +0100
++++ clickhouse/dbms/src/Interpreters/tests/hash_map_string_3.cpp	2018-01-21 16:15:23.357614458 +0100
+@@ -4,6 +4,10 @@
  
+ #include <Common/Stopwatch.h>
+ 
++#ifndef NAMESPACE_FOR_HASH_FUNCTIONS
 +#define NAMESPACE_FOR_HASH_FUNCTIONS farmhash
++#endif
 +
- #include <Core/Types.h>
- #include <IO/ReadBufferFromFile.h>
- #include <IO/ReadHelpers.h>
-@@ -316,7 +318,7 @@
+ #include <farmhash.h>
+ #include <metrohash.h>
+ 
+@@ -316,7 +320,7 @@
  {
      size_t operator() (StringRef x) const
      {

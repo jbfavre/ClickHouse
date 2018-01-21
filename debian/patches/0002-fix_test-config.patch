@@ -8,8 +8,8 @@ Last-Update: 2017-03-20
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: clickhouse/dbms/tests/clickhouse-test
 ===================================================================
---- clickhouse.orig/dbms/tests/clickhouse-test	2018-01-20 22:10:50.664721034 +0100
-+++ clickhouse/dbms/tests/clickhouse-test	2018-01-20 22:10:50.664721034 +0100
+--- clickhouse.orig/dbms/tests/clickhouse-test	2018-01-21 16:15:23.681614959 +0100
++++ clickhouse/dbms/tests/clickhouse-test	2018-01-21 16:15:23.677614953 +0100
 @@ -72,14 +72,14 @@
  
      if args.zookeeper is None:
@@ -29,8 +29,8 @@ Index: clickhouse/dbms/tests/clickhouse-test
              # TODO: false here after setting <listen_host>::1</listen_host>
 Index: clickhouse/dbms/tests/queries/0_stateless/00428_partition.sh
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/0_stateless/00428_partition.sh	2018-01-20 22:10:50.664721034 +0100
-+++ clickhouse/dbms/tests/queries/0_stateless/00428_partition.sh	2018-01-20 22:10:50.664721034 +0100
+--- clickhouse.orig/dbms/tests/queries/0_stateless/00428_partition.sh	2018-01-21 16:15:23.681614959 +0100
++++ clickhouse/dbms/tests/queries/0_stateless/00428_partition.sh	2018-01-21 16:15:23.681614959 +0100
 @@ -18,14 +18,14 @@
  $chl "INSERT INTO test.partition_428 (p, k) VALUES(toDate(1), 2)"
  
@@ -50,8 +50,8 @@ Index: clickhouse/dbms/tests/queries/0_stateless/00428_partition.sh
  $chl "ALTER TABLE test.partition_428 MODIFY COLUMN v1 Int8"
 Index: clickhouse/dbms/tests/queries/shell_config.sh
 ===================================================================
---- clickhouse.orig/dbms/tests/queries/shell_config.sh	2018-01-20 22:10:50.664721034 +0100
-+++ clickhouse/dbms/tests/queries/shell_config.sh	2018-01-20 22:10:50.664721034 +0100
+--- clickhouse.orig/dbms/tests/queries/shell_config.sh	2018-01-21 16:15:23.681614959 +0100
++++ clickhouse/dbms/tests/queries/shell_config.sh	2018-01-21 16:15:23.681614959 +0100
 @@ -3,10 +3,10 @@
  export CLICKHOUSE_CLIENT=${CLICKHOUSE_CLIENT:="${CLICKHOUSE_BINARY}-client"}
  export CLICKHOUSE_LOCAL=${CLICKHOUSE_LOCAL:="${CLICKHOUSE_BINARY}-local"}
